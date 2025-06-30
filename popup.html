@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    
+    body {
+      width: 380px;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: white;
+      color: #212529;
+      margin: 0;
+      line-height: 1.5;
+    }
+    
+    .container {
+      background: rgb(155, 214, 236);
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.769);
+      margin: 18px;
+      overflow: hidden;
+    }
+    
+    .header {
+      background: #6590bd;
+      color: white;
+      padding: 16px 20px;
+      text-align: center;
+      border-bottom: 1px solid #e9ecef;
+    }
+    
+    h1 {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: -0.025em;
+    }
+    h5 {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: -0.025em;
+      color: #041a30;
+      padding: 0px 0px 0px 0px;
+      margin: 0px 0px 0px 0px;
+    }
+    .content {
+      padding-top: 10px;
+      padding-left: 20px;
+      padding-right: 20px;
+    }
+    
+    .form-group {
+      margin-bottom: 4px;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 500;
+      font-size: 14px;
+      color: #495057;
+    }
+    
+    .input-group {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    
+    .dropdown {
+      flex: 1;
+      padding: 0px 0px 0px 4px;;
+      border: 1px solid #ced4da;
+      border-radius: 6px;
+      font-size: 11px;
+      background: white;
+      color: #495057;
+      transition: border-color 0.15s ease-in-out;
+    }
+    
+    .dropdown:focus {
+      outline: none;
+      border-color: #007bff;
+      box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+    }
+    
+    .add-input {
+      flex: 1;
+      padding: px 0px 0px 4px;
+      border: 1px solid #ced4da;
+      border-radius: 6px;
+      font-size: 11px;
+      background: white;
+      color: #495057;
+      transition: border-color 0.15s ease-in-out;
+    }
+    
+    .add-input:focus {
+      outline: none;
+      border-color: #007bff;
+      box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+    }
+    
+    .add-input::placeholder {
+      color: #6c757d;
+    }
+    
+    .add-btn {
+      background: #6c757d;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 2px 3px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background-color 0.15s ease-in-out;
+      font-weight: 500;
+      width: 20px;
+      height: 20px;
+    }
+    
+    .add-btn:hover {
+      background: #5a6268;
+    }
+    
+    .button {
+      border: none;
+      border-radius: 6px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease-in-out;
+      margin-bottom: 12px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+    }
+    
+    .save-btn {
+      background: #28a745;
+      width: 100%;
+      height: 40px;
+      font-size: 14px;
+      color: white;
+    }
+    
+    .save-btn:hover {
+      background: #218838;
+      width: 100%;
+      height: 40px;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(153, 216, 167, 0.3);
+    }
+    
+    .preview-btn {
+      background: rgb(40, 40, 41);
+      width: 120px;
+      font-size: 11px;
+      margin-top: 15px;
+      margin-left: 15px;
+      padding: 3px 3px;
+      height: 20px;
+      color: white;
+    }
+    
+    .preview-btn:hover {
+      background: #7f8082;
+      transform: translateY(-1px);
+      margin-top: 15px;
+      margin-left: 15px;
+      box-shadow: 0 4px 8px rgba(145, 147, 150, 0.3);
+    }
+    
+    .downloads-btn {
+      background: rgb(40, 40, 41);
+      width: 120px;
+      font-size: 11px;
+      margin-top: 15px;
+      margin-left: 15px;
+      padding: 3px 4px;
+      height: 20px;
+      color: #eff3f6;
+    }
+    
+    .downloads-btn:hover {
+      background: #636261;
+      transform: translateY(-1px);
+      margin-top: 15px;
+      margin-left: 15px;
+      box-shadow: 0 4px 8px rgba(169, 167, 162, 0.3);
+    }
+    
+    .status {
+      margin-top: 16px;
+      padding: 12px 16px;
+      border-radius: 6px;
+      text-align: center;
+      font-weight: 500;
+      font-size: 14px;
+      border: 1px solid;
+    }
+    
+    .success {
+      background: #d4edda;
+      border-color: #c3e6cb;
+      color: #155724;
+    }
+    
+    .error {
+      background: #f8d7da;
+      border-color: #f5c6cb;
+      color: #721c24;
+    }
+    
+    .loading {
+      background: #fff3cd;
+      border-color: #ffeaa7;
+      color: #856404;
+    }
+    
+    .footer {
+      background: #f8f9fa;
+      padding: 12px 20px;
+      border-top: 1px solid #e9ecef;
+      text-align: left;
+      font-size: 12px;
+      color: #6c757d;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Job Info Saver</h1>
+    </div>
+    
+    <div class="content">
+      <button class="button save-btn" id="saveJobBtn">💾 Save Job from This Page</button>
+      <div class="form-group">
+        <h5>Category:</h5>
+        
+        <div class="input-group">
+          <select id="categoryDropdown" class="dropdown"></select>
+          <input type="text" id="addCategoryInput" class="add-input" placeholder="Add new category">
+          <button class="add-btn" id="addCategoryBtn">+</button>
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <h5>Sub Category:</h5>
+        <div class="input-group">
+          <select id="subCategoryDropdown" class="dropdown"></select>
+          <input type="text" id="addSubCategoryInput" class="add-input" placeholder="Add new subcategory">
+          <button class="add-btn" id="addSubCategoryBtn">+</button>
+        </div>
+      </div>
+      <button class="button preview-btn" id="previewBtn">👁️ Preview Saved</button>
+      <button class="button downloads-btn" id="downloadsBtn">📥 Download</button>
+      
+      <div id="status" class="status" style="display: none;"></div>
+    </div>
+    
+    <div class="footer">
+      <i>
+      Save » Stores Company, Title, Job Descr. and Date. <br>
+      Labels » Two level labeling<br>
+      Preview » To see all saved jobs <br>
+      Download » To get a report.  <br>
+      </i>
+    </div>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html> 

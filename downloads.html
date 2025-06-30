@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Job Info Saver - Downloads</title>
+  <style>
+    body {
+      color: #212529;
+      background: rgb(167, 213, 220);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    .main-container {
+      max-width: 1200px;
+      margin: 36px auto 0 auto;
+      padding: 0 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 36px;
+      align-items: flex-start;
+      position: relative;
+      min-height: 600px;
+    }
+    .header-bar {
+      background: white;
+      color: #212529;
+      border-bottom: 2px solid #212529;
+      text-align: center;
+      font-size: 2rem;
+      font-weight: 700;
+      padding: 24px 0 16px 0;
+      letter-spacing: -0.02em;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      border-radius: 14px 14px 0 0;
+      margin-bottom: 0;
+    }
+    .nav-links {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #e9ecef;
+    }
+    .nav-link {
+      color: #007bff;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      padding: 4px 8px;
+      border-radius: 4px;
+      transition: background-color 0.15s ease-in-out;
+    }
+    .nav-link:hover {
+      background-color: #f8f9fa;
+      text-decoration: underline;
+    }
+    .card {
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+      padding: 28px 32px;
+      margin-bottom: 24px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .card-title {
+      font-size: 1.2rem;
+      font-weight: 600;
+      margin-bottom: 18px;
+      color: #212529;
+    }
+    .downloads-section {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .download-btn {
+      background: linear-gradient(90deg, #0072c6 0%, #005fa3 100%);
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      padding: 10px 20px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      box-shadow: 0 1px 2px rgba(0,123,255,0.06);
+      transition: background 0.15s, box-shadow 0.15s;
+      letter-spacing: 0.01em;
+      height: 28px;
+      margin-bottom: 8px;
+    }
+    .download-btn:hover {
+      background: linear-gradient(90deg, #005fa3 0%, #0072c6 100%);
+      box-shadow: 0 2px 4px rgba(0,123,255,0.10);
+    }
+    .export-time-section {
+      margin-top: 24px;
+      padding-top: 18px;
+      border-top: 1px solid #e9ecef;
+    }
+    label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #495057;
+      margin-bottom: 6px;
+      display: block;
+    }
+    .time-input {
+      padding: 4px 8px;
+      border: 1px solid #005fa3;
+      border-radius: 7px;
+      font-size: 0.65rem;
+      font-family: inherit;
+      background: #fff;
+      color: #222;
+      outline: none;
+      transition: border-color 0.15s;
+      min-width: 80px;
+      max-width: 120px;
+      height: 20px;
+      margin-bottom: 10px;
+      box-sizing: border-box;
+    }
+    .time-input:focus {
+      border-color: #007bff;
+    }
+    .status {
+      margin-top: 16px;
+      padding: 12px 16px;
+      border-radius: 6px;
+      text-align: center;
+      font-weight: 500;
+      font-size: 14px;
+      border: 1px solid;
+    }
+    .success {
+      background: #d4edda;
+      border-color: #c3e6cb;
+      color: #155724;
+    }
+    .error {
+      background: #f8d7da;
+      border-color: #f5c6cb;
+      color: #721c24;
+    }
+    .loading {
+      background: #fff3cd;
+      border-color: #ffeaa7;
+      color: #856404;
+    }
+    @media (max-width: 900px) {
+      .main-container {
+        flex-direction: column;
+        gap: 16px;
+        max-width: 98vw;
+        padding: 0 4px;
+      }
+      .card, .header-bar {
+        padding: 18px 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div style="position:absolute;left:0;top:50%;transform:translateY(-50%);z-index:1000;display:flex;align-items:center;gap:8px;">
+    <a href="preview.html" title="Go to Preview Page" style="display:flex;align-items:center;justify-content:center;width:44px;height:44px;background:#005fa3;color:#fff;text-decoration:none;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.10);font-size:2rem;font-weight:bold;transition:background 0.2s;">
+      &#x25C0;
+    </a>
+    <span style="font-size:1rem;font-weight:600;color:#005fa3;background:#fff;padding:6px 14px;border-radius:7px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-left:2px;">To Preview</span>
+  </div>
+  <div class="main-container">
+   
+    <div class="card">
+      <h1>Job Info Saver &mdash; Downloads</h1>
+      <div class="downloads-section" id="downloadsSection">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <label for="downloadType" style="margin-bottom:0;">Select Timeframe:</label>
+          <select id="downloadType" class="filter-input" style="max-width:180px;">
+            <option value="all">All Jobs</option>
+            <option value="today">Today</option>
+            <option value="sinceLastExport">Since Last Export</option>
+            <option value="custom">Custom Range</option>
+          </select>
+          <input type="date" id="startDate" class="date-filter-input" style="display:none;" />
+          <span id="toLabel" style="display:none;">to</span>
+          <input type="date" id="endDate" class="date-filter-input" style="display:none;" />
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:12px;">
+          <button id="downloadBtn" class="download-btn" style="padding:0px;width:200px;"> Download CSV 📩</button>
+          <!-- <button id="refreshPreviewBtn" class="download-btn" style="padding:0px;width:200px;background:#888;">Show Preview ⤵</button> -->
+        </div>
+        <div id="downloadStatus" class="status" style="display:none;"></div>
+        <div id="downloadPreviewTable" style="height:400px;overflow-y:scroll;margin-top:18px;"></div>
+      </div>
+      <div style="margin-top:24px;">
+        <div style="font-weight:600;margin-bottom:8px;">Export History</div>
+        <table style="width:100%; height:100px;overflow-y:scroll; font-size:12px;border-collapse:collapse;">
+          <thead>
+            <tr style="background:#f6f7fb;color:#495057;font-weight:600;">
+              <th style="padding:4px 6px;border:1px solid #e0e3ea;">Date</th>
+              <th style="padding:4px 6px;border:1px solid #e0e3ea;">Time</th>
+              <th style="padding:4px 6px;border:1px solid #e0e3ea;">Jobs</th>
+            </tr>
+          </thead>
+          <tbody id="historyBody">
+            <tr><td colspan="3">No export history.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <!--
+    <div class="card">
+      <div class="card-title">Daily Export Time</div>
+      <div class="export-time-section" id="exportTimeSection">
+        <label for="exportTimeInput">Set Daily Export Time:</label>
+        <input type="time" id="exportTimeInput" class="time-input" style="max-width:120px;" />
+        <button id="setTimeBtn" class="download-btn" style="max-width:120px;">Set Time</button>
+        <span id="currentExportTime" style="margin-left:12px;font-size:0.9rem;color:#005fa3;"></span>
+        <div id="timeStatus" class="status" style="display:none;"></div>
+      </div>
+    </div>
+    -->
+  </div>
+  <script src="downloads.js"></script>
+</body>
+</html> 

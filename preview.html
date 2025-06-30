@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Job Info Saver — Preview</title>
+  <style>
+    body {
+      color: #212529;
+      background: rgb(167, 213, 220);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    .header-bar {
+      background: white;
+      color: #212529;
+      border-bottom: 2px solid #212529;
+      text-align: center;
+      font-size: 2rem;
+      font-weight: 700;
+      padding: 24px 0 16px 0;
+      letter-spacing: -0.02em;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .main-container {
+      max-width: 1200px;
+      margin: 36px auto 0 auto;
+      padding: 0 16px;
+      display: flex;
+      gap: 36px;
+      align-items: flex-start;
+      position: relative;
+      min-height: 600px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+      padding: 28px 32px;
+      margin-bottom: 24px;
+    }
+    .left-panel {
+      flex: 7;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .right-panel {
+      flex: 3;
+      width: 410px;
+      box-sizing: border-box;
+      gap: 4px;
+    }
+    .filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      gap: 0;
+      background: #f6f7fb;
+      border-radius: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+      padding: 18px 20px 10px 20px;
+      margin-bottom: 18px;
+    }
+    .filter-group {
+      display: flex;
+      align-items: flex-end;
+      gap: 12px;
+      margin-right: 24px;
+      position: relative;
+    }
+    .filter-divider {
+      width: 1px;
+      height: 36px;
+      background: #e0e3ea;
+      margin: 0 18px;
+      border-radius: 1px;
+      align-self: center;
+    }
+    .filter-bar input[type="text"], .filter-bar select {
+      padding: 10px 14px;
+      border: 1px solid #ced4da;
+      border-radius: 8px;
+      font-size: 15px;
+      background: #fff;
+      color: #495057;
+      min-width: 140px;
+      transition: border-color 0.15s;
+    }
+    .filter-bar input[type="text"]:focus, .filter-bar select:focus {
+      outline: none;
+      border-color: #007bff;
+      box-shadow: 0 0 0 2px rgba(0,123,255,0.10);
+    }
+    .date-group {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      margin-right: 24px;
+    }
+    .date-labels {
+      display: flex;
+      gap: 8px;
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 2px;
+      margin-left: 2px;
+    }
+    .date-fields {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .filter-bar input[type="date"] {
+      padding: 8px 10px;
+      border: 1px solid #ced4da;
+      border-radius: 8px;
+      font-size: 15px;
+      background: #fff;
+      color: #495057;
+      min-width: 120px;
+      transition: border-color 0.15s;
+    }
+    .filter-bar input[type="date"]:focus {
+      outline: none;
+      border-color: #007bff;
+      box-shadow: 0 0 0 2px rgba(0,123,255,0.10);
+    }
+    .filter-bar .step-btns {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+      margin-left: 12px;
+    }
+    .filter-bar button {
+      padding: 10px 20px;
+      background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, box-shadow 0.15s;
+      box-shadow: 0 2px 8px rgba(102,126,234,0.08);
+    }
+    .filter-bar button:hover {
+      background: linear-gradient(90deg, #764ba2 0%, #667eea 100%);
+      box-shadow: 0 4px 16px rgba(102,126,234,0.13);
+    }
+    .analytics-section {
+      border-radius: 14px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+    }
+    .analytics-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: #212529;
+    }
+    .jobs-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: none;
+      border-radius: 0;
+      box-shadow: none;
+      font-size: 11px;
+      margin-top: 8px;
+    }
+    th, td {
+      padding: 4px 6px;
+      text-align: left;
+      border: 1px solid #e0e3ea;
+      background: none;
+      font-size: 11px;
+    }
+    th {
+      background: #f6f7fb;
+      color: #495057;
+      font-weight: 600;
+      border-bottom: 2px solid #e0e3ea;
+      cursor: pointer;
+      font-size: 11px;
+    }
+    tr:nth-child(even) td {
+      background: #fafbfc;
+    }
+    tr:hover td {
+      background: #f0f2f5;
+    }
+    .truncate {
+      max-width: 180px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      cursor: pointer;
+      position: relative;
+    }
+    @media (max-width: 900px) {
+      .main-container {
+        flex-direction: column;
+        gap: 16px;
+        max-width: 98vw;
+        padding: 0 4px;
+      }
+      .left-panel, .right-panel {
+        flex: unset;
+        width: 100%;
+        max-width: 100%;
+      }
+      .jobs-table, th, td {
+        font-size: 13px;
+      }
+      .truncate {
+        max-width: 120px;
+      }
+      .filter-bar {
+        flex-direction: column;
+        gap: 12px;
+        padding: 12px 6px 6px 6px;
+      }
+      .filter-group, .date-group, .filter-bar .step-btns {
+        margin-right: 0;
+        margin-left: 0;
+      }
+      .filter-divider {
+        display: none;
+      }
+    }
+    /* Modern filter bar styles */
+    .filter-bar-modern {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      margin-bottom: 10px;
+      align-items: stretch;
+    }
+    .filter-row {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-bottom: 0;
+    }
+    .filter-label {
+      font-weight: 700;
+      font-size: 0.70rem;
+      background: #111;
+      color: #fff;
+      border-radius: 7px;
+      padding: 3px 10px;
+      width: 120px;
+      text-align: center;
+      font-family: inherit;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+    }
+    .filter-input {
+      flex: 1;
+      padding: 0px 2px 0px 5px;
+      border: 0.5px solid #313537;
+      border-radius: 7px;
+      font-size: 0.65rem;
+      font-family: inherit;
+      background: #d1f6fc;
+      color: #222;
+      font-style: italic;
+      outline: none;
+      transition: border-color 0.15s;
+      width: 140px;
+      height: 20px;
+    }
+    .filter-input:focus {
+      border-color: #007bff;
+    }
+    .filter-btn-row {
+      justify-content: center;
+      gap: 10px;
+      margin-top: 2px;
+    }
+    .filter-btn {
+      flex: 1;
+      max-width: 120px;
+      padding: 5px 0;
+      background: linear-gradient(90deg, #0072c6 0%, #005fa3 100%);
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      box-shadow: 0 1px 2px rgba(0,123,255,0.06);
+      transition: background 0.15s, box-shadow 0.15s;
+      letter-spacing: 0.01em;
+      height: 28px;
+    }
+    .filter-btn:hover {
+      background: linear-gradient(90deg, #005fa3 0%, #0072c6 100%);
+      box-shadow: 0 2px 4px rgba(0,123,255,0.10);
+    }
+    #tableContainer {
+      margin-top: 8px;
+      min-height: 40px;
+      width: 100%;
+      height: 60vh;
+      overflow-y: scroll;
+    }
+    .date-filter-row {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin: 37px 0 0 0;
+    }
+    .date-filter-label {
+      font-weight: 600;
+      font-size: 0.78rem;
+      color: #222;
+      min-width: 90px;
+    }
+    .date-filter-input {
+      padding: 4px 8px;
+      border: 1px solid #005fa3;
+      border-radius: 7px;
+      font-size: 0.65rem;
+      font-family: inherit;
+      background: #fff;
+      color: #222;
+      outline: none;
+      transition: border-color 0.15s;
+      min-width: 80px;
+      max-width: 120px;
+      height: 20px;
+    }
+    .date-filter-input:focus {
+      border-color: #007bff;
+    }
+    .date-filter-btn {
+      padding: 5px 12px;
+      background: linear-gradient(90deg, #0072c6 0%, #005fa3 100%);
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      box-shadow: 0 1px 2px rgba(0,123,255,0.06);
+      transition: background 0.15s, box-shadow 0.15s;
+      height: 28px;
+    }
+    .date-filter-btn:hover {
+      background: linear-gradient(90deg, #005fa3 0%, #0072c6 100%);
+      box-shadow: 0 2px 4px rgba(0,123,255,0.10);
+    }
+    .analytics-section .week-controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1px;
+    }
+    .analytics-section .week-nav-btn {
+      background: #005fa3;
+      color: #fff;
+      border: none;
+      height: 10px;
+      min-height: 0;
+      min-width: 0;
+      border-radius: 5px;
+      font-size: 0.5rem;
+      padding: 0 2px;
+      margin: 0;
+      line-height: 1;
+      box-sizing: border-box;
+      vertical-align: middle;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .analytics-section .week-nav-btn:hover {
+      background: #0072c6;
+    }
+    .analytics-section .week-selector {
+      font-size: 0.95rem;
+      height: 10px;
+      border-radius: 5px;
+      border: 1px solid #005fa3;
+      background: #f6f7fb;
+      color: #222;
+    }
+    .kpi-card {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.10);
+      padding: 24px 18px 18px 18px;
+      margin-bottom: 18px;
+      width: 100%;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .analytics-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin-bottom: 10px;
+      color: #212529;
+      text-align: left;
+    }
+    .job-detail-panel-static {
+      align-self: flex-start;
+      flex: 3;
+      width: 340px;
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 2px 10px rgba(42, 2, 2, 0.07);
+      padding-left: 20px;
+      padding-right: 20px;
+      padding-top: 10px;
+      padding-bottom: 20px; 
+      height: 575px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      font-size: 11px;
+      z-index: 10;
+    }
+    .job-detail-title {
+      font-size: 11px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      color: #212529;
+    }
+    .job-detail-field {
+      margin-bottom: 8px;
+      font-size: 11px;
+      color: #222;
+      word-break: break-word;
+    }
+    .job-detail-label {
+      font-weight: 700;
+      color: #005fa3;
+      font-size: 11px;
+      margin-right: 6px;
+    }
+    .table-scroll-container {
+      height: 90vh;
+      overflow-y: scroll;
+      width: 100%;
+    }
+    .copy-link-btn {
+      background: none;
+      border: none !important;
+      cursor: pointer;
+      font-size: 1.2rem;
+      color: #0072c6;
+      padding: 2px 4px;
+      transition: color 0.15s;
+    }
+    .kpi-card .week-nav-btn {
+      background: #0f3478 !important; 
+      color: #fff !important;
+      border: #0f3478 !important;
+      padding: 0 2px !important;
+      margin: 0 !important;
+      min-width: 10px !important;
+      min-height: 10px !important;
+      box-sizing: border-box !important;
+    }
+    .jobs-table thead th {
+      position: sticky;
+      top: 0;
+      background: #f6f7fb; /* Match your table header background */
+      z-index: 2;
+    }
+  </style>
+</head>
+<body>
+  <div style="position:absolute;left:0;top:50%;transform:translateY(-50%);z-index:1000;display:flex;align-items:center;gap:8px;">
+    <a href="downloads.html" title="Go to Downloads Page" style="display:flex;align-items:center;justify-content:center;width:44px;height:44px;background:#005fa3;color:#fff;text-decoration:none;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.10);font-size:2rem;font-weight:bold;transition:background 0.2s;">
+      &#x25C0;
+    </a>
+    <span style="font-size:1rem;font-weight:600;color:#005fa3;background:#fff;padding:6px 14px;border-radius:7px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-left:2px;">To Downloads</span>
+  </div>
+  <div class="main-container">
+    <div class="left-panel card">
+      <h1>Job Info Saver - Preview</h1>
+      <form id="searchForm" onsubmit="return false;">
+        
+        <div class="filter-bar-modern">
+          <div class="filter-row">
+            <span class="filter-label">Search Options:</span>
+            <input type="text" id="searchCompany" placeholder="Enter company here..." class="filter-input" />
+            <input type="text" id="searchTitle" placeholder="Enter Job Title here..." class="filter-input" />
+            <input type="text" id="searchDescription" placeholder="Enter description here..." class="filter-input" />
+          </div>
+          <div class="filter-row">
+            <span class="filter-label">Categoriy Options:</span>
+            <select id="filterCategory" class="filter-input"><option value="">Select category</option></select>
+            <select id="filterSubCategory" class="filter-input"><option value="">Select sub-category</option></select>
+          </div>
+          <div class="filter-row filter-btn-row">
+            <button type="submit" class="filter-btn">Search</button>
+            <button type="button" id="resetBtn" class="filter-btn">Reset</button>
+          </div>
+        </div>
+        <div class="date-filter-row">
+          <span class="date-filter-label">SELECT DATE RANGE:</span>
+          <input type="date" id="dateFrom" class="date-filter-input" />
+          <input type="date" id="dateTo" class="date-filter-input" />
+          <button type="button" id="applyDateFilter" class="date-filter-btn">Apply Date Filter</button>
+          <button id="clearMemoryBtn" type="button" class="filter-btn" style="background:#c0392b; padding-left:10px; padding-right:10px;margin-left:80px;">Clear Memory</button>
+        </div>
+      </form>
+      <div id="tableContainer"></div>
+    </div>
+    <div class="right-panel">
+      <div class="kpi-card" style="height: 280px;" id="kpiCard">
+        <div style="display: flex;  align-items: center; justify-content: space-between; margin-bottom: 8px;">
+          <button id="kpiPrevBtn" class="analytics-section week-nav-btn" title="Previous">&#8592;</button><span class="analytics-title">Jobs applied:</span><button id="kpiNextBtn" class="analytics-section week-nav-btn" title="Next">&#8594;</button>
+          
+        </div>
+        <div style="height: 200px; overflow-y: scroll;"><canvas id="kpiChart"></canvas></div>
+      </div>
+      <div id="jobDetailPanel" class="job-detail-panel-static">
+        <h1>Job Details</h1>
+        <h3>select a job in table to see details here</h3>
+        <div class="job-detail-field"><span class="job-detail-label">Company:</span> <span id="detailCompany">—</span></div>
+        <div class="job-detail-field"><span class="job-detail-label">Job Title:</span> <span id="detailJobTitle">—</span></div>
+        <div class="job-detail-field"><span class="job-detail-label">Category:</span> <span id="detailCategory">—</span></div>
+        <div class="job-detail-field"><span class="job-detail-label">Sub Category:</span> <span id="detailSubCategory">—</span></div>
+        <div class="job-detail-field"><span class="job-detail-label">Job Link:</span> <span id="detailJobLink">—</span></div>
+        <div class="job-detail-field" style="margin-top: 10px; overflow-y: scroll; height: 200px;"><span class="job-detail-label">Job Description:</span> <span id="detailJobDescription">—</span></div>
+        <div class="job-detail-field"><span class="job-detail-label">Saved At:</span> <span id="detailSavedAt">—</span></div>
+        <div class="job-detail-field" id="detailPanelButtons">
+          <button id="editJobBtn" style="width: 60px;" class="filter-btn" type="button">Edit</button>
+          <button id="saveJobBtn" style="width: 60px; display:none;" class="filter-btn" type="button">Save</button>
+          <button id="cancelEditBtn" style="width: 60px; display:none;" class="filter-btn" type="button">Cancel</button>
+          <button id="deleteJobBtn" style="width: 60px; display:none; background:#c0392b;" class="filter-btn" type="button">Delete</button>
+        </div>
+      </div>
+      <br>
+    </div>
+  </div>
+ 
+  <script src="libs/chart.umd.min.js"></script>
+  <script src="preview.js"></script>
+</body>
+</html> 

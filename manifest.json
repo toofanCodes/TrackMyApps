@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "Job Info Saver - Daily Export",
+  "version": "1.0",
+  "description": "Extract job information from web pages and generate daily Excel reports",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting",
+    "downloads",
+    "contextMenus",
+    "alarms",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://sheets.googleapis.com/*",
+    "https://www.googleapis.com/*",
+    "<all_urls>"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Job Info Saver"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "background": {
+    "service_worker": "background-simple.js"
+  }
+} 
