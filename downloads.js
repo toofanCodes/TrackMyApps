@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', async function() {
+document.addEventListener('DOMContentLoaded', async function () {
   const downloadType = document.getElementById('downloadType');
   const startDate = document.getElementById('startDate');
   const endDate = document.getElementById('endDate');
@@ -17,8 +17,14 @@ document.addEventListener('DOMContentLoaded', async function() {
 
   // --- Load jobs and history ---
   async function loadData() {
-    const result = await chrome.storage.local.get(['allJobsData', 'lastExportDate', 'exportHistory', 'exportTime']);
-    allJobs = result.allJobsData || [];
+    const result = await chrome.storage.local.get(['lastExportDate', 'exportHistory', 'exportTime']);
+
+    if (typeof db !== 'undefined') {
+      allJobs = await db.getAllJobs();
+    } else {
+      allJobs = [];
+    }
+
     lastExportDate = result.lastExportDate || null;
     exportHistory = result.exportHistory || [];
     // if (exportTimeInput && result.exportTime) exportTimeInput.value = result.exportTime;
@@ -62,7 +68,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (!savedAtRaw) return false;
         const savedAt = new Date(savedAtRaw);
         if (isNaN(savedAt)) return false;
-        return savedAt.toISOString().slice(0,10) === today.toISOString().slice(0,10);
+        return savedAt.toISOString().slice(0, 10) === today.toISOString().slice(0, 10);
       });
     } else if (type === 'sinceLastExport') {
       if (!lastExportDate) {
@@ -101,8 +107,75 @@ document.addEventListener('DOMContentLoaded', async function() {
     return filtered;
   }
 
+  // --- Delete Filtered Jobs ---
+  const deleteFilteredBtn = document.getElementById('deleteFilteredBtn');
+  deleteFilteredBtn.addEventListener('click', async function () {
+    const jobsToDelete = filterJobs();
+    if (!jobsToDelete.length) {
+      showStatus(downloadStatus, 'No jobs found for this filter.', 'error');
+      return;
+    }
+
+    // Confirm deletion
+    const confirmMessage = `Are you sure you want to delete ${jobsToDelete.length} job(s)? This action cannot be undone.`;
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    showStatus(downloadStatus, `Deleting ${jobsToDelete.length} job(s)...`, 'loading');
+
+    try {
+      // Get all jobs from storage
+      const result = await chrome.storage.local.get(['allJobsData']);
+      let allJobsFromStorage = result.allJobsData || [];
+
+      // Create a function to generate a unique identifier for a job
+      function getJobIdentifier(job) {
+        // Use combination of key fields for reliable matching
+        const company = (job.company || '').trim();
+        const jobTitle = (job.jobTitle || '').trim();
+        const timestamp = job.savedAt || job.addedTimestamp || '';
+        const jobLink = (job.jobLink || job.siteLink || '').trim();
+        // Create identifier from these fields
+        return `${company}|${jobTitle}|${timestamp}|${jobLink}`;
+      }
+
+      // Create a set of job identifiers to delete
+      const jobsToDeleteSet = new Set();
+      jobsToDelete.forEach(job => {
+        jobsToDeleteSet.add(getJobIdentifier(job));
+      });
+
+      // Filter out jobs that match the ones to delete
+      const remainingJobs = allJobsFromStorage.filter(job => {
+        return !jobsToDeleteSet.has(getJobIdentifier(job));
+      });
+
+      // Delete jobs from DB
+      if (typeof db !== 'undefined') {
+        for (const job of jobsToDelete) {
+          if (job.savedAt) {
+            await db.deleteJob(job.savedAt);
+          }
+        }
+        // Reload to get remaining
+        remainingJobs = await db.getAllJobs();
+      }
+
+      // Update local state
+      allJobs = remainingJobs;
+
+      // Refresh the UI
+      renderDownloadPreviewTable();
+      showStatus(downloadStatus, `Successfully deleted ${jobsToDelete.length} job(s). ${remainingJobs.length} jobs remaining.`, 'success');
+    } catch (error) {
+      console.error('Error deleting jobs:', error);
+      showStatus(downloadStatus, 'Error deleting jobs: ' + error.message, 'error');
+    }
+  });
+
   // --- Download CSV ---
-  downloadBtn.addEventListener('click', async function() {
+  downloadBtn.addEventListener('click', async function () {
     const jobs = filterJobs();
     if (!jobs.length) {
       showStatus(downloadStatus, 'No jobs found for this filter.', 'error');
@@ -110,7 +183,14 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
     // Use the same field order as preview
     const headers = [
-      'Company', 'Job Title', 'Category', 'Sub Category', 'Job Link', 'Job Description', 'Saved At'
+      'Company',
+      'Job Title',
+      'Category',
+      'Sponsorship',
+      'Status',
+      'Job Link',
+      'Job Description',
+      'Applied Time'
     ];
     const csvRows = [headers.join(',')];
     jobs.forEach(job => {
@@ -118,7 +198,8 @@ document.addEventListener('DOMContentLoaded', async function() {
         escapeCSVField(job.company || ''),
         escapeCSVField(job.jobTitle || ''),
         escapeCSVField(job.category || ''),
-        escapeCSVField(job.subCategory || ''),
+        escapeCSVField(job.sponsorship || ''),
+        escapeCSVField(job.status || 'Applied'),
         escapeCSVField(job.jobLink || job.siteLink || ''),
         escapeCSVField(job.jobDescription || ''),
         escapeCSVField(job.savedAt ? new Date(job.savedAt).toLocaleString() : (job.addedDate || job.addedTimestamp ? new Date(job.addedDate || job.addedTimestamp).toLocaleString() : ''))
@@ -226,7 +307,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     html += '<th style="padding:4px 6px;border:1px solid #e0e3ea;background:#f6f7fb;">Company</th>';
     html += '<th style="padding:4px 6px;border:1px solid #e0e3ea;background:#f6f7fb;">Job Title</th>';
     html += '<th style="padding:4px 6px;border:1px solid #e0e3ea;background:#f6f7fb;">Category</th>';
-    html += '<th style="padding:4px 6px;border:1px solid #e0e3ea;background:#f6f7fb;">Sub Category</th>';
+    html += '<th style="padding:4px 6px;border:1px solid #e0e3ea;background:#f6f7fb;">Sponsorship</th>';
+    html += '<th style="padding:4px 6px;border:1px solid #e0e3ea;background:#f6f7fb;">Status</th>';
     html += '<th style="padding:4px 6px;border:1px solid #e0e3ea;background:#f6f7fb;">Job Link</th>';
     html += '<th style="padding:4px 6px;border:1px solid #e0e3ea;background:#f6f7fb;">Job Description</th>';
     html += '<th style="padding:4px 6px;border:1px solid #e0e3ea;background:#f6f7fb;">Saved At</th>';
@@ -236,9 +318,10 @@ document.addEventListener('DOMContentLoaded', async function() {
       html += `<td style="padding:4px 6px;border:1px solid #e0e3ea;">${job.company || ''}</td>`;
       html += `<td style="padding:4px 6px;border:1px solid #e0e3ea;">${job.jobTitle || ''}</td>`;
       html += `<td style="padding:4px 6px;border:1px solid #e0e3ea;">${job.category || ''}</td>`;
-      html += `<td style="padding:4px 6px;border:1px solid #e0e3ea;">${job.subCategory || ''}</td>`;
+      html += `<td style="padding:4px 6px;border:1px solid #e0e3ea;">${job.sponsorship || ''}</td>`;
+      html += `<td style="padding:4px 6px;border:1px solid #e0e3ea;">${job.status || 'Applied'}</td>`;
       html += `<td style="padding:4px 6px;border:1px solid #e0e3ea;"><a href="${job.jobLink || job.siteLink || '#'}" target="_blank" style="color:#005fa3;">link</a></td>`;
-      html += `<td style="padding:4px 6px;border:1px solid #e0e3ea;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${job.jobDescription ? job.jobDescription.slice(0,60) + (job.jobDescription.length>60?'...':'') : ''}</td>`;
+      html += `<td style="padding:4px 6px;border:1px solid #e0e3ea;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${job.jobDescription ? job.jobDescription.slice(0, 60) + (job.jobDescription.length > 60 ? '...' : '') : ''}</td>`;
       html += `<td style="padding:4px 6px;border:1px solid #e0e3ea;">${job.savedAt ? new Date(job.savedAt).toLocaleString() : ''}</td>`;
       html += '</tr>';
     });
@@ -262,7 +345,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   const exportHistorySection = document.getElementById('exportHistorySection');
   const exportHistoryArrow = document.getElementById('exportHistoryArrow');
   if (exportHistoryToggle && exportHistorySection && exportHistoryArrow) {
-    exportHistoryToggle.addEventListener('click', async function() {
+    exportHistoryToggle.addEventListener('click', async function () {
       const isOpen = exportHistorySection.style.display !== 'none';
       if (isOpen) {
         exportHistorySection.style.display = 'none';
@@ -283,6 +366,211 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Hide section by default
     exportHistorySection.style.display = 'none';
     exportHistoryArrow.style.transform = '';
+  }
+
+  // --- CSV Import Logic ---
+  const csvFileInput = document.getElementById('csvFileInput');
+  const importCsvBtn = document.getElementById('importCsvBtn');
+  const importStatus = document.getElementById('importStatus');
+  const undoImportBtn = document.getElementById('undoImportBtn');
+
+  let lastImportedJobIds = []; // Track for undo
+
+  if (importCsvBtn) {
+    importCsvBtn.addEventListener('click', async function () {
+      const file = csvFileInput.files[0];
+      if (!file) {
+        showStatus(importStatus, 'Please select a CSV file first.', 'error');
+        return;
+      }
+
+      showStatus(importStatus, 'Reading and parsing CSV...', 'loading');
+
+      try {
+        const text = await file.text();
+        const lines = text.split('\n');
+
+        if (lines.length < 2) {
+          showStatus(importStatus, 'CSV file is empty or has no data rows.', 'error');
+          return;
+        }
+
+        // Detect delimiter: » or ,
+        const headerLine = lines[0];
+        const delimiter = headerLine.includes('»') ? '»' : ',';
+
+        // Parse header
+        const headers = headerLine.split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''));
+        console.log('CSV Headers:', headers);
+
+        // Map header indices
+        const colMap = {
+          company: headers.findIndex(h => h.toLowerCase().includes('company')),
+          jobTitle: headers.findIndex(h => h.toLowerCase().includes('job title') || h.toLowerCase().includes('jobtitle')),
+          category: headers.findIndex(h => h.toLowerCase().includes('category')),
+          sponsorship: headers.findIndex(h => h.toLowerCase().includes('sponsorship')),
+          status: headers.findIndex(h => h.toLowerCase().includes('status')),
+          jobLink: headers.findIndex(h => h.toLowerCase().includes('job link') || h.toLowerCase().includes('joblink') || h.toLowerCase().includes('link')),
+          jobDescription: headers.findIndex(h => h.toLowerCase().includes('description')),
+          savedAt: headers.findIndex(h => h.toLowerCase().includes('applied') || h.toLowerCase().includes('saved') || h.toLowerCase().includes('time'))
+        };
+
+        console.log('Column mapping:', colMap);
+
+        const jobsToImport = [];
+        let skippedCount = 0;
+        let duplicateCount = 0;
+
+        // Get existing savedAt keys to check for duplicates
+        const existingKeys = new Set(allJobs.map(j => j.savedAt));
+
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue; // Skip empty lines
+
+          // Simple split by delimiter
+          const values = line.split(delimiter).map(v => v.trim().replace(/^"|"$/g, ''));
+
+          const company = colMap.company >= 0 ? values[colMap.company] || '' : '';
+          const jobTitle = colMap.jobTitle >= 0 ? values[colMap.jobTitle] || '' : '';
+
+          if (!company && !jobTitle) {
+            skippedCount++;
+            continue;
+          }
+
+          // Parse applied time to ISO
+          let savedAt = '';
+          if (colMap.savedAt >= 0 && values[colMap.savedAt]) {
+            const parsedDate = new Date(values[colMap.savedAt]);
+            if (!isNaN(parsedDate)) {
+              savedAt = parsedDate.toISOString();
+            } else {
+              savedAt = new Date(Date.now() + i).toISOString();
+            }
+          } else {
+            savedAt = new Date(Date.now() + i).toISOString();
+          }
+
+          // Check for duplicate
+          if (existingKeys.has(savedAt)) {
+            duplicateCount++;
+            continue;
+          }
+
+          const job = {
+            company: company,
+            jobTitle: jobTitle,
+            category: colMap.category >= 0 ? values[colMap.category] || '' : '',
+            sponsorship: colMap.sponsorship >= 0 ? values[colMap.sponsorship] || '' : '',
+            status: colMap.status >= 0 ? values[colMap.status] || 'Applied' : 'Applied',
+            jobLink: colMap.jobLink >= 0 ? values[colMap.jobLink] || '' : '',
+            jobDescription: colMap.jobDescription >= 0 ? values[colMap.jobDescription] || '' : '',
+            savedAt: savedAt,
+            addedTimestamp: savedAt,
+            addedDate: new Date(savedAt).toLocaleString()
+          };
+
+          jobsToImport.push(job);
+          existingKeys.add(savedAt);
+        }
+
+        if (jobsToImport.length === 0) {
+          showStatus(importStatus, `No new jobs to import. ${duplicateCount} duplicates, ${skippedCount} skipped.`, 'error');
+          return;
+        }
+
+        // Bulk insert to IndexedDB
+        if (typeof db !== 'undefined') {
+          const result = await db.addJobs(jobsToImport);
+          console.log('Import result:', result);
+
+          // Track imported job IDs for undo
+          lastImportedJobIds = jobsToImport.map(j => j.savedAt);
+
+          // Show undo button
+          if (undoImportBtn) {
+            undoImportBtn.style.display = '';
+          }
+
+          // Reload data
+          await loadData();
+
+          // Broadcast update
+          chrome.runtime.sendMessage({ action: 'jobsUpdated' }).catch(() => { });
+
+          showStatus(importStatus, `Successfully imported ${result.added} jobs. ${duplicateCount} duplicates skipped, ${skippedCount} empty rows skipped.`, 'success');
+        } else {
+          showStatus(importStatus, 'Database not available.', 'error');
+        }
+      } catch (error) {
+        console.error('Import error:', error);
+        showStatus(importStatus, 'Error importing CSV: ' + error.message, 'error');
+      }
+    });
+  }
+
+  // --- Undo Import Logic ---
+  if (undoImportBtn) {
+    undoImportBtn.addEventListener('click', async function () {
+      if (lastImportedJobIds.length === 0) {
+        showStatus(importStatus, 'Nothing to undo.', 'error');
+        return;
+      }
+
+      if (!confirm(`Are you sure you want to undo the last import? This will delete ${lastImportedJobIds.length} jobs.`)) {
+        return;
+      }
+
+      showStatus(importStatus, `Undoing import of ${lastImportedJobIds.length} jobs...`, 'loading');
+
+      try {
+        if (typeof db !== 'undefined') {
+          for (const id of lastImportedJobIds) {
+            await db.deleteJob(id);
+          }
+
+          const deletedCount = lastImportedJobIds.length;
+          lastImportedJobIds = [];
+
+          // Hide undo button
+          undoImportBtn.style.display = 'none';
+
+          // Reload data
+          await loadData();
+
+          // Broadcast update
+          chrome.runtime.sendMessage({ action: 'jobsUpdated' }).catch(() => { });
+
+          showStatus(importStatus, `Successfully undone import. Deleted ${deletedCount} jobs.`, 'success');
+        }
+      } catch (error) {
+        console.error('Undo error:', error);
+        showStatus(importStatus, 'Error undoing import: ' + error.message, 'error');
+      }
+    });
+  }
+
+  // --- Clear Memory Button ---
+  const clearMemoryBtn = document.getElementById('clearMemoryBtn');
+  if (clearMemoryBtn) {
+    clearMemoryBtn.addEventListener('click', async function () {
+      const confirmation = prompt('Are you sure you want to clear all saved jobs?\nType "delete" to confirm.');
+      if (confirmation && confirmation.trim().toLowerCase() === 'delete') {
+        try {
+          if (typeof db !== 'undefined') {
+            await db.clearAllJobs();
+          }
+          alert('All jobs have been cleared.');
+          location.reload();
+        } catch (error) {
+          console.error('Error clearing jobs:', error);
+          alert('Error clearing jobs: ' + error.message);
+        }
+      } else {
+        alert('Clear memory cancelled.');
+      }
+    });
   }
 
   // --- Initial load ---

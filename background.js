@@ -1,179 +1,256 @@
-// Background service worker for handling Google Sheets integration
-let accessToken = null;
-let spreadsheetId = null;
+// Background service worker for Job Info Saver
+importScripts('libs/db.js');
 
-// Listen for messages from popup
+// --- MIGRATION LOGIC ---
+chrome.runtime.onInstalled.addListener(async (details) => {
+  console.log('Extension installed/updated:', details.reason);
+
+  // 1. Setup Context Menu
+  setupContextMenu();
+
+  // 2. Setup Scheduled Export (Default 5 PM)
+  setupScheduledExport();
+
+  // 3. Migrate Data from chrome.storage.local to IndexedDB
+  await migrateDataToIndexedDB();
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  console.log('Extension startup');
+  setupScheduledExport(); // Ensure alarm is set
+});
+
+async function migrateDataToIndexedDB() {
+  try {
+    console.log('[Migration] Checking for legacy data...');
+    const result = await chrome.storage.local.get(['allJobsData', 'dailyJobsData']);
+    const legacyJobs = result.allJobsData || [];
+    const dailyJobs = result.dailyJobsData || [];
+
+    // Combine unique jobs
+    const allLegacyJobs = [...legacyJobs, ...dailyJobs];
+
+    if (allLegacyJobs.length > 0) {
+      console.log(`[Migration] Found ${allLegacyJobs.length} legacy jobs. Migrating to IndexedDB...`);
+
+      // Open DB and bulk add
+      await self.db.open();
+      const result = await self.db.addJobs(allLegacyJobs);
+
+      console.log(`[Migration] Successfully migrated ${result.added} jobs.`);
+
+      // Clear legacy storage to free up space
+      await chrome.storage.local.remove(['allJobsData', 'dailyJobsData']);
+      console.log('[Migration] Legacy storage cleared.');
+    } else {
+      console.log('[Migration] No legacy data found.');
+    }
+  } catch (error) {
+    console.error('[Migration] Error migrating data:', error);
+  }
+}
+
+// --- MESSAGE HANDLING ---
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === 'saveToSheets') {
-    handleSaveToSheets(request.data)
+  console.log('Background received message:', request.action);
+
+  if (request.action === 'saveJob') {
+    handleSaveJob(request.data)
       .then(result => sendResponse(result))
       .catch(error => sendResponse({ success: false, error: error.message }));
-    return true; // Keep the message channel open for async response
+    return true; // Async response
+  }
+
+  if (request.action === 'saveToSheets') {
+    // Legacy support or if we keep the name 'saveToSheets' for the button
+    handleSaveJob(request.data)
+      .then(result => sendResponse(result))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
+
+  if (request.action === 'manualExport') {
+    performDailyExport('Manual Export')
+      .then(result => sendResponse(result))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
+
+  if (request.action === 'getJobHistory') {
+    self.db.getJobsByCompany(request.companyName)
+      .then(jobs => sendResponse({ success: true, jobs: jobs }))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    return true;
   }
 });
 
-async function handleSaveToSheets(jobData) {
+// --- JOB HANDLING ---
+async function handleSaveJob(jobData) {
   try {
-    // Check if we have stored credentials
-    const credentials = await getStoredCredentials();
-    
-    if (!credentials.accessToken) {
-      // Need to authenticate first
-      return { success: false, error: 'Please authenticate with Google first' };
-    }
-    
-    if (!credentials.spreadsheetId) {
-      // Create a new spreadsheet
-      const newSpreadsheetId = await createNewSpreadsheet(credentials.accessToken);
-      await storeSpreadsheetId(newSpreadsheetId);
-      credentials.spreadsheetId = newSpreadsheetId;
-    }
-    
-    // Save the job data to the spreadsheet
-    await appendJobData(credentials.accessToken, credentials.spreadsheetId, jobData);
-    
-    return { success: true };
+    // Add metadata
+    if (!jobData.savedAt) jobData.savedAt = new Date().toISOString();
+    if (!jobData.status) jobData.status = 'Applied';
+    jobData.addedDate = new Date().toLocaleString();
+    jobData.addedTimestamp = new Date().toISOString();
+
+    // Save to IndexedDB
+    await self.db.addJob(jobData);
+
+    // Get count for response
+    const allJobs = await self.db.getAllJobs();
+
+    // Broadcast update to all views (preview page, popup, etc.)
+    chrome.runtime.sendMessage({ action: 'jobsUpdated' }).catch(() => {
+      // Ignore error if no receivers (e.g. popup closed, no preview open)
+    });
+
+    return {
+      success: true,
+      message: `Job saved! Total jobs: ${allJobs.length}`,
+      jobCount: allJobs.length
+    };
   } catch (error) {
-    console.error('Error saving to sheets:', error);
+    console.error('Error saving job:', error);
     return { success: false, error: error.message };
   }
 }
 
-async function getStoredCredentials() {
-  return new Promise((resolve) => {
-    chrome.storage.local.get(['accessToken', 'spreadsheetId'], (result) => {
-      resolve({
-        accessToken: result.accessToken || null,
-        spreadsheetId: result.spreadsheetId || null
-      });
-    });
-  });
-}
+// --- SCHEDULER & EXPORT ---
+async function setupScheduledExport() {
+  try {
+    const result = await chrome.storage.local.get(['exportTime']);
+    const exportTime = result.exportTime || '17:00'; // Default 5 PM
 
-async function storeAccessToken(token) {
-  return new Promise((resolve) => {
-    chrome.storage.local.set({ accessToken: token }, resolve);
-  });
-}
+    // Clear existing
+    await chrome.alarms.clear('dailyExport');
 
-async function storeSpreadsheetId(id) {
-  return new Promise((resolve) => {
-    chrome.storage.local.set({ spreadsheetId: id }, resolve);
-  });
-}
+    // Parse time
+    const [hours, minutes] = exportTime.split(':').map(Number);
+    const now = new Date();
+    const exportDate = new Date();
+    exportDate.setHours(hours, minutes, 0, 0);
 
-async function createNewSpreadsheet(accessToken) {
-  const response = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      properties: {
-        title: 'Job Applications - ' + new Date().toLocaleDateString()
-      },
-      sheets: [{
-        properties: {
-          title: 'Job Data',
-          gridProperties: {
-            rowCount: 1000,
-            columnCount: 8
-          }
-        }
-      }]
-    })
-  });
-  
-  if (!response.ok) {
-    throw new Error('Failed to create spreadsheet');
-  }
-  
-  const data = await response.json();
-  return data.spreadsheetId;
-}
-
-async function appendJobData(accessToken, spreadsheetId, jobData) {
-  const values = [
-    [
-      jobData.jobTitle || '',
-      jobData.company || '',
-      jobData.location || '',
-      jobData.jobDescription || '',
-      jobData.salary || '',
-      jobData.siteLink || '',
-      jobData.dateTime || new Date().toISOString(),
-      new Date().toLocaleString()
-    ]
-  ];
-  
-  const response = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A1:append?valueInputOption=USER_ENTERED`,
-    {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        values: values
-      })
+    // If passed, schedule for tomorrow
+    if (exportDate <= now) {
+      exportDate.setDate(exportDate.getDate() + 1);
     }
-  );
-  
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(`Failed to append data: ${errorData.error?.message || 'Unknown error'}`);
+
+    const delayInMinutes = (exportDate.getTime() - now.getTime()) / (1000 * 60);
+
+    await chrome.alarms.create('dailyExport', {
+      delayInMinutes: delayInMinutes,
+      periodInMinutes: 24 * 60 // Daily
+    });
+
+    console.log(`[Scheduler] Daily export set for ${exportTime} (${delayInMinutes.toFixed(1)} mins)`);
+  } catch (error) {
+    console.error('[Scheduler] Error setting up:', error);
   }
-  
-  return response.json();
 }
 
-// Handle OAuth flow
-chrome.runtime.onInstalled.addListener(() => {
-  // Set up OAuth flow when extension is installed
-  setupOAuth();
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === 'dailyExport') {
+    console.log('[Scheduler] Alarm triggered. Performing export...');
+    performDailyExport('Scheduled Export');
+  }
 });
 
-function setupOAuth() {
-  // This would typically involve opening an OAuth popup
-  // For now, we'll provide instructions for manual setup
-  console.log('Extension installed. Please set up Google Sheets API credentials.');
+async function performDailyExport(trigger = 'Scheduled Export') {
+  try {
+    // Get all jobs
+    const allJobs = await self.db.getAllJobs();
+
+    if (allJobs.length === 0) {
+      console.log('No jobs to export.');
+      return { success: true, message: 'No jobs to export', jobCount: 0 };
+    }
+
+    // Create CSV
+    const csvContent = createCSVContent(allJobs);
+    const csvBase64 = btoa(unescape(encodeURIComponent(csvContent)));
+    const dataUrl = 'data:text/csv;base64,' + csvBase64;
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
+    const filename = `job_saver_backup_${timestamp}.csv`;
+
+    // Download
+    await chrome.downloads.download({
+      url: dataUrl,
+      filename: filename,
+      saveAs: false // Auto-save to default folder
+    });
+
+    // Log history
+    const exportRecord = {
+      date: new Date().toLocaleDateString(),
+      time: new Date().toLocaleTimeString(),
+      jobCount: allJobs.length,
+      trigger: trigger
+    };
+
+    // Update history in local storage (keep history lightweight in local storage)
+    const result = await chrome.storage.local.get(['exportHistory']);
+    let history = result.exportHistory || [];
+    history.unshift(exportRecord);
+    if (history.length > 10) history = history.slice(0, 10);
+    await chrome.storage.local.set({ exportHistory: history });
+
+    return { success: true, message: `Exported ${allJobs.length} jobs`, jobCount: allJobs.length };
+  } catch (error) {
+    console.error('Error performing export:', error);
+    return { success: false, error: error.message };
+  }
 }
 
-// Alternative: Export to CSV for local storage
-async function exportToCSV(jobData) {
-  const csvContent = [
-    'Job Title,Company,Location,Job Description,Salary,Site Link,Date Time,Added Date',
-    `"${jobData.jobTitle || ''}","${jobData.company || ''}","${jobData.location || ''}","${jobData.jobDescription || ''}","${jobData.salary || ''}","${jobData.siteLink || ''}","${jobData.dateTime || ''}","${new Date().toLocaleString()}"`
-  ].join('\n');
-  
-  const blob = new Blob([csvContent], { type: 'text/csv' });
-  const url = URL.createObjectURL(blob);
-  
-  chrome.downloads.download({
-    url: url,
-    filename: `job_data_${new Date().toISOString().split('T')[0]}.csv`,
-    saveAs: true
-  });
+function createCSVContent(jobs) {
+  const headers = [
+    'Company', 'Job Title', 'Category', 'Sponsorship',
+    'Job Link', 'Job Description', 'Applied Time'
+  ];
+
+  const rows = jobs.map(job => [
+    escapeCSVField(job.company),
+    escapeCSVField(job.jobTitle),
+    escapeCSVField(job.category),
+    escapeCSVField(job.sponsorship),
+    escapeCSVField(job.jobLink || job.siteLink),
+    escapeCSVField(job.jobDescription),
+    escapeCSVField(job.savedAt ? new Date(job.savedAt).toLocaleString() : '')
+  ]);
+
+  return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
 }
 
-// Listen for context menu clicks (alternative way to save)
-chrome.runtime.onInstalled.addListener(() => {
+function escapeCSVField(field) {
+  if (field === null || field === undefined) return '""';
+  const escaped = String(field).replace(/"/g, '""');
+  return `"${escaped}"`;
+}
+
+// --- CONTEXT MENU ---
+function setupContextMenu() {
   chrome.contextMenus.create({
-    id: 'saveJobToSheets',
-    title: 'Save Job to Sheets',
+    id: 'saveJob',
+    title: 'Save Job to DB',
     contexts: ['page']
   });
-});
+
+  chrome.contextMenus.create({
+    id: 'manualExport',
+    title: 'Backup Jobs Now',
+    contexts: ['page']
+  });
+}
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
-  if (info.menuItemId === 'saveJobToSheets') {
-    // Extract and save job data from the current tab
+  if (info.menuItemId === 'saveJob') {
     chrome.tabs.sendMessage(tab.id, { action: 'extractJobInfo' }, (response) => {
       if (response && response.success) {
-        handleSaveToSheets(response.data);
+        handleSaveJob(response.data);
       }
     });
   }
-}); 
+  if (info.menuItemId === 'manualExport') {
+    performDailyExport('Manual Context Menu');
+  }
+});

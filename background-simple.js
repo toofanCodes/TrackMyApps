@@ -174,16 +174,21 @@ async function getJobCount() {
 // Create CSV content
 function createCompleteCSVContent(allJobs) {
   const headers = [
-    'Company', 'Job Title', 'Category', 'Sub Category', 'Job Link', 'Job Description', 'Saved At'
+    'Company',
+    'Job Title',
+    'Category', 
+    'Sponsorship',
+    'Job Link',
+    'Job Description',
+    'Applied Time'
   ];
   const csvRows = [headers.join(',')];
-  
   allJobs.forEach(job => {
     const rowData = [
       escapeCSVField(job.company || ''),
       escapeCSVField(job.jobTitle || ''),
       escapeCSVField(job.category || ''),
-      escapeCSVField(job.subCategory || ''),
+      escapeCSVField(job.sponsorship || ''),
       escapeCSVField(job.jobLink || ''),
       escapeCSVField(job.jobDescription || ''),
       escapeCSVField(job.savedAt ? new Date(job.savedAt).toLocaleString() : '')

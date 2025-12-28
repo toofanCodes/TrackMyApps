@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
   <meta charset="utf-8">
   <title>Job Info Saver - Downloads</title>
@@ -11,6 +12,7 @@
       margin: 0;
       padding: 0;
     }
+
     .main-container {
       max-width: 1200px;
       margin: 36px auto 0 auto;
@@ -22,6 +24,7 @@
       position: relative;
       min-height: 600px;
     }
+
     .header-bar {
       background: white;
       color: #212529;
@@ -31,10 +34,11 @@
       font-weight: 700;
       padding: 24px 0 16px 0;
       letter-spacing: -0.02em;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
       border-radius: 14px 14px 0 0;
       margin-bottom: 0;
     }
+
     .nav-links {
       display: flex;
       justify-content: center;
@@ -43,6 +47,7 @@
       padding-top: 12px;
       border-top: 1px solid #e9ecef;
     }
+
     .nav-link {
       color: #007bff;
       text-decoration: none;
@@ -52,30 +57,35 @@
       border-radius: 4px;
       transition: background-color 0.15s ease-in-out;
     }
+
     .nav-link:hover {
       background-color: #f8f9fa;
       text-decoration: underline;
     }
+
     .card {
       background: #fff;
       border-radius: 14px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.07);
       padding: 28px 32px;
       margin-bottom: 24px;
       width: 100%;
       box-sizing: border-box;
     }
+
     .card-title {
       font-size: 1.2rem;
       font-weight: 600;
       margin-bottom: 18px;
       color: #212529;
     }
+
     .downloads-section {
       display: flex;
       flex-direction: column;
       gap: 18px;
     }
+
     .download-btn {
       background: linear-gradient(90deg, #0072c6 0%, #005fa3 100%);
       color: #fff;
@@ -86,21 +96,24 @@
       font-weight: 700;
       font-family: inherit;
       cursor: pointer;
-      box-shadow: 0 1px 2px rgba(0,123,255,0.06);
+      box-shadow: 0 1px 2px rgba(0, 123, 255, 0.06);
       transition: background 0.15s, box-shadow 0.15s;
       letter-spacing: 0.01em;
       height: 28px;
       margin-bottom: 8px;
     }
+
     .download-btn:hover {
       background: linear-gradient(90deg, #005fa3 0%, #0072c6 100%);
-      box-shadow: 0 2px 4px rgba(0,123,255,0.10);
+      box-shadow: 0 2px 4px rgba(0, 123, 255, 0.10);
     }
+
     .export-time-section {
       margin-top: 24px;
       padding-top: 18px;
       border-top: 1px solid #e9ecef;
     }
+
     label {
       font-size: 0.78rem;
       font-weight: 600;
@@ -108,6 +121,7 @@
       margin-bottom: 6px;
       display: block;
     }
+
     .time-input {
       padding: 4px 8px;
       border: 1px solid #005fa3;
@@ -124,9 +138,11 @@
       margin-bottom: 10px;
       box-sizing: border-box;
     }
+
     .time-input:focus {
       border-color: #007bff;
     }
+
     .status {
       margin-top: 16px;
       padding: 12px 16px;
@@ -136,21 +152,25 @@
       font-size: 14px;
       border: 1px solid;
     }
+
     .success {
       background: #d4edda;
       border-color: #c3e6cb;
       color: #155724;
     }
+
     .error {
       background: #f8d7da;
       border-color: #f5c6cb;
       color: #721c24;
     }
+
     .loading {
       background: #fff3cd;
       border-color: #ffeaa7;
       color: #856404;
     }
+
     @media (max-width: 900px) {
       .main-container {
         flex-direction: column;
@@ -158,21 +178,28 @@
         max-width: 98vw;
         padding: 0 4px;
       }
-      .card, .header-bar {
+
+      .card,
+      .header-bar {
         padding: 18px 10px;
       }
     }
   </style>
 </head>
+
 <body>
-  <div style="position:absolute;left:0;top:50%;transform:translateY(-50%);z-index:1000;display:flex;align-items:center;gap:8px;">
-    <a href="preview.html" title="Go to Preview Page" style="display:flex;align-items:center;justify-content:center;width:44px;height:44px;background:#005fa3;color:#fff;text-decoration:none;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.10);font-size:2rem;font-weight:bold;transition:background 0.2s;">
+  <div
+    style="position:absolute;left:0;top:50%;transform:translateY(-50%);z-index:1000;display:flex;align-items:center;gap:8px;">
+    <a href="preview.html" title="Go to Preview Page"
+      style="display:flex;align-items:center;justify-content:center;width:44px;height:44px;background:#005fa3;color:#fff;text-decoration:none;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.10);font-size:2rem;font-weight:bold;transition:background 0.2s;">
       &#x25C0;
     </a>
-    <span style="font-size:1rem;font-weight:600;color:#005fa3;background:#fff;padding:6px 14px;border-radius:7px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-left:2px;">To Preview</span>
+    <span
+      style="font-size:1rem;font-weight:600;color:#005fa3;background:#fff;padding:6px 14px;border-radius:7px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-left:2px;">To
+      Preview</span>
   </div>
   <div class="main-container">
-   
+
     <div class="card">
       <h1>Job Info Saver &mdash; Downloads</h1>
       <div class="downloads-section" id="downloadsSection">
@@ -190,10 +217,42 @@
         </div>
         <div style="display:flex;align-items:center;gap:10px;margin-top:12px;">
           <button id="downloadBtn" class="download-btn" style="padding:0px;width:200px;"> Download CSV 📩</button>
+          <button id="deleteFilteredBtn" class="download-btn"
+            style="padding:0px;width:200px;background:linear-gradient(90deg, #dc3545 0%, #c82333 100%);"> Delete
+            Filtered 🗑️</button>
           <!-- <button id="refreshPreviewBtn" class="download-btn" style="padding:0px;width:200px;background:#888;">Show Preview ⤵</button> -->
         </div>
         <div id="downloadStatus" class="status" style="display:none;"></div>
         <div id="downloadPreviewTable" style="height:400px;overflow-y:scroll;margin-top:18px;"></div>
+      </div>
+
+      <!-- CSV Import Section -->
+      <div style="margin-top:24px;padding-top:18px;border-top:1px solid #e9ecef;">
+        <div style="font-weight:600;margin-bottom:12px;">Import Jobs from CSV</div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <input type="file" id="csvFileInput" accept=".csv" style="font-size:12px;" />
+          <button id="importCsvBtn" class="download-btn"
+            style="padding:0px;width:150px;background:linear-gradient(90deg, #28a745 0%, #218838 100%);">
+            Import CSV 📥
+          </button>
+          <button id="undoImportBtn" class="download-btn"
+            style="padding:0px;width:150px;background:linear-gradient(90deg, #dc3545 0%, #c82333 100%);display:none;">
+            Undo Import ↩️
+          </button>
+        </div>
+        <div id="importStatus" class="status" style="display:none;margin-top:12px;"></div>
+      </div>
+
+      <!-- Clear Memory Section -->
+      <div style="margin-top:24px;padding-top:18px;border-top:1px solid #e9ecef;">
+        <div style="font-weight:600;margin-bottom:12px;">Database Management</div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <button id="clearMemoryBtn" class="download-btn"
+            style="padding:0px;width:200px;background:linear-gradient(90deg, #c0392b 0%, #a93226 100%);">
+            🗑️ Clear All Jobs
+          </button>
+          <span style="font-size:11px;color:#6c757d;">⚠️ This will permanently delete all job data</span>
+        </div>
       </div>
       <div style="margin-top:24px;">
         <div style="font-weight:600;margin-bottom:8px;">Export History</div>
@@ -206,7 +265,9 @@
             </tr>
           </thead>
           <tbody id="historyBody">
-            <tr><td colspan="3">No export history.</td></tr>
+            <tr>
+              <td colspan="3">No export history.</td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -224,6 +285,8 @@
     </div>
     -->
   </div>
+  <script src="libs/db.js"></script>
   <script src="downloads.js"></script>
 </body>
-</html> 
+
+</html>
