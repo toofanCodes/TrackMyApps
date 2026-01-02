@@ -147,7 +147,7 @@ document.addEventListener('DOMContentLoaded', async function () {
       });
 
       // Filter out jobs that match the ones to delete
-      const remainingJobs = allJobsFromStorage.filter(job => {
+      let remainingJobs = allJobsFromStorage.filter(job => {
         return !jobsToDeleteSet.has(getJobIdentifier(job));
       });
 

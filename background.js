@@ -204,7 +204,7 @@ async function performDailyExport(trigger = 'Scheduled Export') {
 
 function createCSVContent(jobs) {
   const headers = [
-    'Company', 'Job Title', 'Category', 'Sponsorship',
+    'Company', 'Job Title', 'Category', 'Sponsorship', 'Status',
     'Job Link', 'Job Description', 'Applied Time'
   ];
 
@@ -213,6 +213,7 @@ function createCSVContent(jobs) {
     escapeCSVField(job.jobTitle),
     escapeCSVField(job.category),
     escapeCSVField(job.sponsorship),
+    escapeCSVField(job.status || 'Applied'),
     escapeCSVField(job.jobLink || job.siteLink),
     escapeCSVField(job.jobDescription),
     escapeCSVField(job.savedAt ? new Date(job.savedAt).toLocaleString() : '')

@@ -166,9 +166,3 @@ function cleanJobData(data) {
 
   return cleaned;
 }
-
-document.addEventListener('DOMContentLoaded', function () {
-  if (typeof observer !== 'undefined' && document.body) {
-    observer.observe(document.body, { childList: true, subtree: true });
-  }
-});

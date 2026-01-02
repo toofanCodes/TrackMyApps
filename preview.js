@@ -203,6 +203,8 @@ document.addEventListener('DOMContentLoaded', async function () {
     document.getElementById('editStatus').value = job.status || 'Applied';
     document.getElementById('detailJobLink').innerHTML = `<input id='editJobLink' type='text' value="${job.jobLink || ''}" style='width:90%;'/>`;
     document.getElementById('detailJobDescription').innerHTML = `<textarea id='editJobDescription' style='width:98%;height:120px;'>${job.jobDescription || ''}</textarea>`;
+    // Q&A Notes editable field
+    document.getElementById('detailQAndA').innerHTML = `<textarea id='editQAndA' style='width:98%;height:100px;' placeholder='Add interview Q&A notes, preparation tips, etc.'>${job.qAndA || ''}</textarea>`;
     // Saved At editable field
     let savedAtValue = job.savedAt || job.addedDate || job.addedTimestamp;
     let inputDateValue = '';
@@ -403,10 +405,14 @@ document.addEventListener('DOMContentLoaded', async function () {
 
   // Event Delegation for table body (checkboxes and row clicks)
   function setupTableEventDelegation(allFilteredJobs) {
-    const tableBody = document.getElementById('jobsTableBody');
-    const selectAll = document.getElementById('selectAllCheckbox');
+    const oldTableBody = document.getElementById('jobsTableBody');
+    const oldSelectAll = document.getElementById('selectAllCheckbox');
 
-    if (!tableBody) return;
+    if (!oldTableBody) return;
+
+    // Clone and replace to remove all old event listeners
+    const tableBody = oldTableBody.cloneNode(true);
+    oldTableBody.parentNode.replaceChild(tableBody, oldTableBody);
 
     // Single click handler for the entire table body
     tableBody.addEventListener('click', function (e) {
@@ -444,7 +450,11 @@ document.addEventListener('DOMContentLoaded', async function () {
     });
 
     // Select All checkbox handler
-    if (selectAll) {
+    if (oldSelectAll) {
+      // Clone and replace to remove old listener
+      const selectAll = oldSelectAll.cloneNode(true);
+      oldSelectAll.parentNode.replaceChild(selectAll, oldSelectAll);
+
       // Calculate current page jobs for select all
       const startIndex = (currentPage - 1) * itemsPerPage;
       const endIndex = Math.min(startIndex + itemsPerPage, allFilteredJobs.length);
@@ -480,47 +490,6 @@ document.addEventListener('DOMContentLoaded', async function () {
     selectAll.indeterminate = someChecked && !allChecked;
   }
 
-
-  function setupCheckboxListeners(jobs) {
-    const selectAll = document.getElementById('selectAllCheckbox');
-    const checkboxes = document.querySelectorAll('.job-checkbox');
-
-    // Select All
-    if (selectAll) {
-      selectAll.checked = jobs.length > 0 && jobs.every(j => selectedJobIds.has(j.savedAt || j.addedTimestamp));
-      selectAll.indeterminate = jobs.some(j => selectedJobIds.has(j.savedAt || j.addedTimestamp)) && !selectAll.checked;
-
-      selectAll.addEventListener('change', function () {
-        if (this.checked) {
-          jobs.forEach(j => selectedJobIds.add(j.savedAt || j.addedTimestamp));
-        } else {
-          jobs.forEach(j => selectedJobIds.delete(j.savedAt || j.addedTimestamp));
-        }
-        updateAll(false); // Re-render to update UI
-      });
-    }
-
-    // Individual Checkboxes
-    checkboxes.forEach(cb => {
-      cb.addEventListener('click', function (e) {
-        e.stopPropagation(); // Prevent row click
-        const id = this.getAttribute('data-job-id');
-        if (this.checked) selectedJobIds.add(id);
-        else selectedJobIds.delete(id);
-        updateBulkEditBar();
-
-        // Update Select All state visually without full re-render
-        if (selectAll) {
-          const allChecked = Array.from(checkboxes).every(c => c.checked);
-          const someChecked = Array.from(checkboxes).some(c => c.checked);
-          selectAll.checked = allChecked;
-          selectAll.indeterminate = someChecked && !allChecked;
-        }
-      });
-    });
-
-    updateBulkEditBar();
-  }
 
   function updateBulkEditBar() {
     const count = selectedJobIds.size;
@@ -756,6 +725,20 @@ document.addEventListener('DOMContentLoaded', async function () {
   // Initial render
   updateAll(false);
 
+  // Setup Edit/Save/Cancel button handlers (only needs to run once)
+  document.getElementById('editJobBtn').onclick = function (e) {
+    e.stopPropagation();
+    if (currentDetailJobIdx !== null) enterEditMode();
+  };
+  document.getElementById('saveJobBtn').onclick = function (e) {
+    e.stopPropagation();
+    if (currentDetailJobIdx !== null) saveJobEdits();
+  };
+  document.getElementById('cancelEditBtn').onclick = function (e) {
+    e.stopPropagation();
+    if (currentDetailJobIdx !== null) exitEditMode();
+  };
+
   // --- Keyboard Shortcuts ---
   const keyboardShortcutsOverlay = document.getElementById('keyboardShortcutsOverlay');
   let optionKeyHoldTimeout = null;
@@ -914,7 +897,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
   });
 
-  // Advanced tooltip logic
+  // Advanced tooltip logic - uses event delegation to avoid listener accumulation
   function setupAdvancedTooltip() {
     // Create tooltip element if not present
     let tooltip = document.getElementById('advanced-job-tooltip');
@@ -938,95 +921,55 @@ document.addEventListener('DOMContentLoaded', async function () {
       tooltip.style.transition = 'opacity 0.15s';
       tooltip.style.display = 'block';
       document.body.appendChild(tooltip);
-    }
 
-    function showTooltip(text, x, y) {
-      tooltip.innerHTML = text;
-      tooltip.style.opacity = '1';
-      // Position tooltip near mouse, but not off screen
-      const padding = 12;
-      const rect = tooltip.getBoundingClientRect();
-      let left = x + 18;
-      let top = y + 18;
-      if (left + rect.width > window.innerWidth - padding) {
-        left = window.innerWidth - rect.width - padding;
+      // Setup event delegation on tableContainer ONCE (not on every render)
+      const container = document.getElementById('tableContainer');
+      if (container && !container.hasAttribute('data-tooltip-setup')) {
+        container.setAttribute('data-tooltip-setup', 'true');
+
+        container.addEventListener('mouseover', function (e) {
+          const cell = e.target.closest('.truncate');
+          if (cell) {
+            const fullDesc = cell.getAttribute('data-full-desc') || '';
+            if (fullDesc) {
+              tooltip.innerHTML = fullDesc;
+              tooltip.style.opacity = '1';
+            }
+          }
+        });
+
+        container.addEventListener('mousemove', function (e) {
+          const cell = e.target.closest('.truncate');
+          if (cell && tooltip.style.opacity === '1') {
+            const padding = 12;
+            let left = e.clientX + 18;
+            let top = e.clientY + 18;
+            const rect = tooltip.getBoundingClientRect();
+            if (left + rect.width > window.innerWidth - padding) {
+              left = window.innerWidth - rect.width - padding;
+            }
+            if (top + rect.height > window.innerHeight - padding) {
+              top = window.innerHeight - rect.height - padding;
+            }
+            tooltip.style.left = left + 'px';
+            tooltip.style.top = top + 'px';
+          }
+        });
+
+        container.addEventListener('mouseout', function (e) {
+          const cell = e.target.closest('.truncate');
+          if (cell) {
+            const related = e.relatedTarget;
+            // Only hide if we're leaving the truncate cell entirely
+            if (!related || !related.closest || !related.closest('.truncate')) {
+              tooltip.style.opacity = '0';
+            }
+          }
+        });
       }
-      if (top + rect.height > window.innerHeight - padding) {
-        top = window.innerHeight - rect.height - padding;
-      }
-      tooltip.style.left = left + 'px';
-      tooltip.style.top = top + 'px';
     }
-    function hideTooltip() {
-      tooltip.style.opacity = '0';
-    }
-
-    // Remove any previous listeners
-    const oldCells = document.querySelectorAll('.truncate');
-    oldCells.forEach(cell => {
-      cell.onmouseenter = null;
-      cell.onmousemove = null;
-      cell.onmouseleave = null;
-    });
-
-    // Add listeners to all .truncate cells
-    const cells = document.querySelectorAll('.truncate');
-    cells.forEach(cell => {
-      cell.addEventListener('mouseenter', function (e) {
-        const fullDesc = cell.getAttribute('data-full-desc') || '';
-        if (fullDesc) {
-          showTooltip(fullDesc, e.clientX, e.clientY);
-        }
-      });
-      cell.addEventListener('mousemove', function (e) {
-        const fullDesc = cell.getAttribute('data-full-desc') || '';
-        if (fullDesc) {
-          showTooltip(fullDesc, e.clientX, e.clientY);
-        }
-      });
-      cell.addEventListener('mouseleave', function () {
-        hideTooltip();
-      });
-    });
   }
 
-  // Job detail panel logic
-  function setupJobDetailPanel(jobs) {
-    // Remove overlay/close logic, just update the static panel
-    // Remove previous listeners
-    const oldRows = document.querySelectorAll('.jobs-table tbody tr');
-    oldRows.forEach(row => {
-      row.onclick = null;
-    });
-
-    // Add click listeners to each row
-    const rows = document.querySelectorAll('.jobs-table tbody tr');
-    rows.forEach(row => {
-      row.addEventListener('click', function (e) {
-        if (isEditMode) return; // Prevent changing job while editing
-        if (e.target.classList.contains('copy-link-btn')) return;
-        if (e.target.classList.contains('job-checkbox')) return; // Ignore checkbox clicks
-        const idx = parseInt(row.getAttribute('data-job-idx'), 10);
-        if (!isNaN(idx) && jobs[idx]) {
-          showJobDetail(jobs[idx], idx);
-        }
-      });
-    });
-
-    // Button logic
-    document.getElementById('editJobBtn').onclick = function (e) {
-      e.stopPropagation();
-      if (currentDetailJobIdx !== null) enterEditMode();
-    };
-    document.getElementById('saveJobBtn').onclick = function (e) {
-      e.stopPropagation();
-      if (currentDetailJobIdx !== null) saveJobEdits();
-    };
-    document.getElementById('cancelEditBtn').onclick = function (e) {
-      e.stopPropagation();
-      if (currentDetailJobIdx !== null) exitEditMode();
-    };
-  }
 
   function showJobDetail(job, idx) {
     currentDetailJobIdx = idx;
@@ -1070,6 +1013,9 @@ document.addEventListener('DOMContentLoaded', async function () {
     // Job description (preserve line breaks)
     const descSpan = document.getElementById('detailJobDescription');
     descSpan.innerHTML = job.jobDescription ? job.jobDescription.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>') : '—';
+    // Q&A Notes (preserve line breaks)
+    const qAndASpan = document.getElementById('detailQAndA');
+    qAndASpan.innerHTML = job.qAndA ? job.qAndA.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>') : '—';
     document.getElementById('detailSavedAt').textContent = job.savedAt ? new Date(job.savedAt).toLocaleString() : (job.addedDate || job.addedTimestamp ? new Date(job.addedDate || job.addedTimestamp).toLocaleString() : '—');
   }
 
@@ -1104,6 +1050,7 @@ document.addEventListener('DOMContentLoaded', async function () {
       job.status = document.getElementById('editStatus').value;
       job.jobLink = document.getElementById('editJobLink').value;
       job.jobDescription = document.getElementById('editJobDescription').value;
+      job.qAndA = document.getElementById('editQAndA').value; // Save Q&A notes
 
       // Handle Date Change
       const savedAtInput = document.getElementById('editSavedAt');
@@ -1366,6 +1313,7 @@ document.addEventListener('DOMContentLoaded', async function () {
       document.getElementById('detailStatusWrapper').innerHTML = '<span id="detailStatus">—</span>';
       document.getElementById('detailJobLink').innerHTML = '—';
       document.getElementById('detailJobDescription').innerHTML = '—';
+      document.getElementById('detailQAndA').innerHTML = '—';
       document.getElementById('detailSavedAt').textContent = '—';
 
       document.getElementById('editJobBtn').style.display = '';
