@@ -521,10 +521,10 @@
     }
 
     .kpi-card {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: rgb(4, 0, 13);
       border-radius: 20px;
       box-shadow: 0 8px 24px rgba(102, 126, 234, 0.25);
-      padding: 28px 24px 20px 24px;
+      padding: 8px 24px 20px 24px;
       margin-bottom: 18px;
       width: 100%;
       box-sizing: border-box;
@@ -621,6 +621,85 @@
 
     .kpi-card .week-nav-btn:active {
       transform: scale(0.95) !important;
+    }
+
+    .week-controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: row;
+    }
+
+    /* View Toggle Buttons */
+    .view-toggle-btn {
+      background: transparent;
+      border: none;
+      color: rgba(255, 255, 255, 0.7);
+      padding: 4px 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      border-radius: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .view-toggle-btn:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .view-toggle-btn.active {
+      background: #fff;
+      color: #667eea;
+      /* Match card gradient start */
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Heatmap Styles */
+    .heatmap-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      height: 100%;
+      width: 100%;
+    }
+
+    .heatmap-day {
+      border-radius: 4px;
+      position: relative;
+      cursor: pointer;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      transition: transform 0.15s;
+    }
+
+    .heatmap-day:hover {
+      transform: scale(1.05);
+      z-index: 2;
+      border-color: rgba(255, 255, 255, 0.5);
+    }
+
+    .heatmap-day-number {
+      position: absolute;
+      top: 2px;
+      right: 4px;
+      font-size: 0.65rem;
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .heatmap-day-count {
+      position: absolute;
+      bottom: 2px;
+      left: 4px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      color: #fff;
+    }
+
+    .heatmap-header {
+      font-size: 0.65rem;
+      text-align: center;
+      color: #333;
+      margin-bottom: 2px;
     }
 
     .jobs-table thead th {
@@ -882,18 +961,50 @@
     </div>
     <div class="right-panel">
       <div class="kpi-card" style="height: 380px; padding-bottom: 8px;" id="kpiCard">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
-          <button id="kpiPrevBtn" class="analytics-section week-nav-btn" title="Previous">&#8592;</button>
-          <span class="analytics-title">Jobs Applied</span>
-          <button id="kpiNextBtn" class="analytics-section week-nav-btn" title="Next">&#8594;</button>
+        <div class="analytics-title">
+          Analytics
+          <div style="font-size: 0.8rem; font-weight: normal; margin-top: 4px; opacity: 0.9;" id="analyticsDateRange">
+            <!-- Date range will be injected here -->
+          </div>
         </div>
-        <div
-          style="background: rgba(255, 255, 255, 0.95); border-radius: 14px; padding: 16px; height: 280px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+
+        <!-- View Toggles & Navigation -->
+        <div class="week-controls"
+          style="margin-top: 10px; gap: 12px; display: flex; align-items: center; justify-content: center;">
+          <button id="kpiPrevBtn" class="week-nav-btn" title="Previous">◀</button>
+
+          <div style="display: flex; background: rgba(255,255,255,0.2); border-radius: 8px; padding: 2px;">
+            <button id="viewWeeklyBtn" class="view-toggle-btn active">Weekly</button>
+            <button id="viewMonthlyBtn" class="view-toggle-btn">Monthly</button>
+          </div>
+
+          <button id="kpiNextBtn" class="week-nav-btn" title="Next">▶</button>
+
+          <button id="kpiTodayBtn" class="view-toggle-btn"
+            style="background: rgba(255, 255, 255, 0.15); margin-left: 4px; padding: 4px 10px; font-size: 0.75rem;"
+            title="Reset to Today">Today</button>
+        </div>
+
+        <!-- Charts Container -->
+        <div class="chart-container"
+          style="position: relative; height: 220px; width: 90%; margin-top: 15px; background: rgba(255, 255, 255, 0.95); border-radius: 14px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
           <canvas id="kpiChart"></canvas>
+          <div id="monthlyHeatmap" style="display: none; width: 100%; height: 100%;"></div>
         </div>
       </div>
       <div id="jobDetailPanel" class="job-detail-panel-static">
-        <h1>Job Details</h1>
+        <!-- Header row with title and Edit button -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+          <h1 style="margin: 0;">Job Details</h1>
+          <button id="editJobBtn" style="width: 60px;" class="filter-btn" type="button">Edit</button>
+        </div>
+        <!-- Action buttons row (Save, Cancel, Delete) - shown in edit mode -->
+        <div id="detailPanelButtons" style="display: none; gap: 8px; margin-bottom: 8px;">
+          <button id="saveJobBtn" style="width: 60px;" class="filter-btn" type="button">Save</button>
+          <button id="cancelEditBtn" style="width: 60px;" class="filter-btn" type="button">Cancel</button>
+          <button id="deleteJobBtn" style="width: 60px; background:#c0392b;" class="filter-btn"
+            type="button">Delete</button>
+        </div>
         <h3>select a job in table to see details here</h3>
         <div class="job-detail-field"><span class="job-detail-label">Company:</span> <span id="detailCompany">—</span>
         </div>
@@ -912,13 +1023,6 @@
         <div class="job-detail-field" style="margin-top: 10px; overflow-y: scroll; height: 200px;"><span
             class="job-detail-label">Job Description:</span> <span id="detailJobDescription">—</span></div>
         <div class="job-detail-field"><span class="job-detail-label">Saved At:</span> <span id="detailSavedAt">—</span>
-        </div>
-        <div class="job-detail-field" id="detailPanelButtons">
-          <button id="editJobBtn" style="width: 60px;" class="filter-btn" type="button">Edit</button>
-          <button id="saveJobBtn" style="width: 60px; display:none;" class="filter-btn" type="button">Save</button>
-          <button id="cancelEditBtn" style="width: 60px; display:none;" class="filter-btn" type="button">Cancel</button>
-          <button id="deleteJobBtn" style="width: 60px; display:none; background:#c0392b;" class="filter-btn"
-            type="button">Delete</button>
         </div>
       </div>
       <br>

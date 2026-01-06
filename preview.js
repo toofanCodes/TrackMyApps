@@ -7,6 +7,13 @@ function formatDate(date) {
   return date.toISOString().split('T')[0];
 }
 
+// Helper to get local date string in YYYY-MM-DD
+function getLocalDateString(date) {
+  return date.getFullYear() + '-' +
+    String(date.getMonth() + 1).padStart(2, '0') + '-' +
+    String(date.getDate()).padStart(2, '0');
+}
+
 // ========================================
 // PERFORMANCE UTILITIES
 // ========================================
@@ -217,9 +224,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
     document.getElementById('detailSavedAt').innerHTML = `<input id='editSavedAt' type='datetime-local' value="${inputDateValue}" style='width:94%;'/>`;
     document.getElementById('editJobBtn').style.display = 'none';
-    document.getElementById('saveJobBtn').style.display = '';
-    document.getElementById('cancelEditBtn').style.display = '';
-    document.getElementById('deleteJobBtn').style.display = '';
+    document.getElementById('detailPanelButtons').style.display = 'flex';
   }
 
   // ... (rest of the file) ...
@@ -978,8 +983,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     currentDetailJobId = job.savedAt || job.addedTimestamp || null;
     renderJobDetailView(job);
     document.getElementById('editJobBtn').style.display = '';
-    document.getElementById('saveJobBtn').style.display = 'none';
-    document.getElementById('cancelEditBtn').style.display = 'none';
+    document.getElementById('detailPanelButtons').style.display = 'none';
   }
 
   function renderJobDetailView(job) {
@@ -1025,9 +1029,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     isEditMode = false;
     renderJobDetailView(originalJobData);
     document.getElementById('editJobBtn').style.display = '';
-    document.getElementById('saveJobBtn').style.display = 'none';
-    document.getElementById('cancelEditBtn').style.display = 'none';
-    document.getElementById('deleteJobBtn').style.display = 'none';
+    document.getElementById('detailPanelButtons').style.display = 'none';
   }
 
   async function saveJobEdits() {
@@ -1088,9 +1090,7 @@ document.addEventListener('DOMContentLoaded', async function () {
       renderJobDetailView(job);
 
       document.getElementById('editJobBtn').style.display = '';
-      document.getElementById('saveJobBtn').style.display = 'none';
-      document.getElementById('cancelEditBtn').style.display = 'none';
-      document.getElementById('deleteJobBtn').style.display = 'none';
+      document.getElementById('detailPanelButtons').style.display = 'none';
 
       // Refresh table
       updateAll(false);
@@ -1113,158 +1113,398 @@ document.addEventListener('DOMContentLoaded', async function () {
     return dates;
   }
 
-  // Helper to get local date string in YYYY-MM-DD
+  // ========================================
+  // ANALYTICS & VISUALIZATION LOGIC
+  // ========================================
+
+  let analyticsState = {
+    viewMode: 'weekly', // 'weekly' or 'monthly'
+    currentDate: new Date(), // This represents the "cursor" (referenced date)
+  };
+
   function getLocalDateString(date) {
     return date.getFullYear() + '-' +
       String(date.getMonth() + 1).padStart(2, '0') + '-' +
       String(date.getDate()).padStart(2, '0');
   }
 
-  function getKPIData(jobs, startIdx = 0, days = 7) {
+
+
+  function getStartOfWeek(date) {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+    // Note: Assuming Monday start for consistency, or adjust as needed. 
+    // Actually, common chart practice: Sunday start? Let's stick to user preference if known, 
+    // but standard getDay() returns 0 for Sunday. 
+    // Let's use Sunday as start of week for simplicity in display, or use locale.
+    // Let's try to center around the "currentDate".
+    // Simple approach: Start of week is Sunday.
+    const start = new Date(d.setDate(d.getDate() - d.getDay()));
+    start.setHours(0, 0, 0, 0);
+    return start;
+  }
+
+  function getWeekRange(date) {
+    const start = getStartOfWeek(date);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+    return { start, end };
+  }
+
+  function getMonthRange(date) {
+    const start = new Date(date.getFullYear(), date.getMonth(), 1);
+    const end = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+    return { start, end };
+  }
+
+  function formatDateRangeDisplay() {
+    const rangeEl = document.getElementById('analyticsDateRange');
+    if (!rangeEl) return;
+
+    if (analyticsState.viewMode === 'weekly') {
+      const { start, end } = getWeekRange(analyticsState.currentDate);
+      const startStr = start.toLocaleDateString('default', { month: 'short', day: 'numeric' });
+      const endStr = end.toLocaleDateString('default', { month: 'short', day: 'numeric' });
+      rangeEl.textContent = `${startStr} - ${endStr}, ${start.getFullYear()}`;
+    } else {
+      const { start } = getMonthRange(analyticsState.currentDate);
+      rangeEl.textContent = start.toLocaleDateString('default', { month: 'long', year: 'numeric' });
+    }
+  }
+
+  // Get data for a specific date range (inclusive)
+  function getKPIDataForRange(jobs, startDate, endDate) {
     // Get all unique categories
     const categories = Array.from(new Set(jobs.map(j => j.category || 'Not Defined')));
-    // Find the latest date in the data, or use today if no data
-    let endDate;
-    if (jobs.length > 0) {
-      const allDates = jobs
-        .map(j => {
-          const d = new Date(j.savedAt || j.addedTimestamp || '');
-          if (isNaN(d)) return null;
-          return d;
-        })
-        .filter(Boolean);
-      endDate = new Date(Math.max(...allDates.map(d => d.getTime())));
-    } else {
-      endDate = new Date();
+
+    // Generate all dates in range
+    const dateList = [];
+    const curr = new Date(startDate);
+    while (curr <= endDate) {
+      dateList.push(getLocalDateString(curr));
+      curr.setDate(curr.getDate() + 1);
     }
-    // Always get the last N days, even if no jobs exist for some days
-    const dateObjs = getLastNDates(30, endDate);
-    const dateList = dateObjs.map(d => getLocalDateString(d));
-    const windowDates = dateList.slice(Math.max(0, dateList.length - days - startIdx), dateList.length - startIdx);
-    // Build data: for each date, count jobs per category (0 if none)
-    const data = windowDates.map(date => {
+
+    // Build data
+    const data = dateList.map(date => {
       const jobsOnDate = jobs.filter(j => {
         const d = new Date(j.savedAt || j.addedTimestamp || '');
         return getLocalDateString(d) === date;
       });
-      console.log(`Jobs on ${date}:`, jobsOnDate.length, jobsOnDate);
       const counts = {};
       categories.forEach(cat => {
         counts[cat] = jobsOnDate.filter(j => (j.category || 'Not Defined') === cat).length;
       });
       return counts;
     });
-    return { windowDates, categories, data };
+
+    return { windowDates: dateList, categories, data };
+  }
+
+  function getKPIData(jobs) {
+    // Legacy support wrapper or unused now? 
+    // We'll redirect to the new logic based on state.
+    const { start, end } = getWeekRange(analyticsState.currentDate);
+    return getKPIDataForRange(jobs, start, end);
   }
 
   function renderKPIChart() {
-    const ctx = document.getElementById('kpiChart').getContext('2d');
-    if (kpiChart) kpiChart.destroy();
-    const { windowDates, categories, data } = getKPIData(allJobs, kpiStartIdx, 7);
-    // Prepare datasets for Chart.js
-    const datasets = categories.map((cat, idx) => ({
-      label: cat,
-      data: data.map(counts => counts[cat]),
-      backgroundColor: `hsl(${(idx * 360) / categories.length}, 60%, 60%)`,
-      borderWidth: 1,
-      borderRadius: 2,
-      barPercentage: 0.7,
-      categoryPercentage: 0.8,
-    }));
-    kpiChart = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels: windowDates,
-        datasets: datasets,
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        layout: {
-          padding: {
-            top: 15
-          }
+    try {
+      formatDateRangeDisplay();
+
+      // If Monthly, render Heatmap instead
+      if (analyticsState.viewMode === 'monthly') {
+        renderMonthlyHeatmap();
+        return;
+      }
+
+      // Toggle Visibility
+      document.getElementById('kpiChart').style.display = 'block';
+      document.getElementById('monthlyHeatmap').style.display = 'none';
+
+      const nextBtn = document.getElementById('kpiNextBtn');
+      const now = new Date();
+      if (analyticsState.viewMode === 'weekly') {
+        const nextWeek = new Date(analyticsState.currentDate);
+        nextWeek.setDate(nextWeek.getDate() + 7);
+        const { start } = getWeekRange(nextWeek);
+        if (start > now) {
+          nextBtn.disabled = true;
+          nextBtn.style.opacity = '0.3';
+          nextBtn.style.cursor = 'default';
+        } else {
+          nextBtn.disabled = false;
+          nextBtn.style.opacity = '1';
+          nextBtn.style.cursor = 'pointer';
+        }
+      } else {
+        const nextMonth = new Date(analyticsState.currentDate);
+        nextMonth.setMonth(nextMonth.getMonth() + 1);
+        if (nextMonth.getFullYear() > now.getFullYear() ||
+          (nextMonth.getFullYear() === now.getFullYear() && nextMonth.getMonth() > now.getMonth())) {
+          nextBtn.disabled = true;
+          nextBtn.style.opacity = '0.3';
+          nextBtn.style.cursor = 'default';
+        } else {
+          nextBtn.disabled = false;
+          nextBtn.style.opacity = '1';
+          nextBtn.style.cursor = 'pointer';
+        }
+      }
+
+      const canvas = document.getElementById('kpiChart');
+      if (!canvas) {
+        console.error('Canvas element not found');
+        return;
+      }
+      const ctx = canvas.getContext('2d');
+      if (kpiChart) kpiChart.destroy();
+
+      const { start, end } = getWeekRange(analyticsState.currentDate);
+      const { windowDates, categories, data } = getKPIDataForRange(allJobs, start, end);
+
+      // Prepare datasets for Chart.js
+      const datasets = categories.map((cat, idx) => ({
+        label: cat,
+        data: data.map(counts => counts[cat]),
+        backgroundColor: `hsl(${(idx * 360) / categories.length}, 60%, 60%)`,
+        borderWidth: 1,
+        borderRadius: 2,
+        barPercentage: 0.7,
+        categoryPercentage: 0.8,
+      }));
+
+      // Formatting helper for X-axis labels (e.g., "Mon")
+      const formattedLabels = windowDates.map(dStr => {
+        const date = new Date(dStr + 'T00:00:00'); // Ensure local time parsing
+        return date.toLocaleDateString('default', { weekday: 'short' });
+      });
+
+      kpiChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: formattedLabels,
+          datasets: datasets,
         },
-        plugins: {
-          legend: {
-            display: true,
-            position: 'top', // Move legend to top
-            maxHeight: 60, // Enable scrolling if too many items
-            labels: {
-              usePointStyle: true, // Use small circle instead of bar
-              pointStyle: 'circle',
-              font: { size: 10 } // Reduce font size
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          layout: {
+            padding: {
+              top: 15
             }
           },
-          tooltip: { enabled: true },
-          totalLabels: true
-        },
-        scales: {
-          x: {
-            stacked: true,
-            ticks: {
-              font: { size: 11 },
-              callback: function (value, idx, values) {
-                return this.getLabelForValue(value);
+          plugins: {
+            legend: {
+              display: true,
+              position: 'top',
+              maxHeight: 60,
+              labels: {
+                usePointStyle: true,
+                pointStyle: 'circle',
+                font: { size: 10 }
+              }
+            },
+            tooltip: { enabled: true },
+            totalLabels: true
+          },
+          scales: {
+            x: {
+              stacked: true,
+              ticks: {
+                font: { size: 11 },
+                maxRotation: 0,
+                minRotation: 0,
               },
-              maxRotation: 90,
-              minRotation: 90,
+              grid: {
+                display: false
+              }
+            },
+            y: {
+              stacked: true,
+              display: false,
             },
           },
-          y: {
-            stacked: true,
-            display: false,
-          },
+          indexAxis: 'x',
         },
-        indexAxis: 'x',
-      },
-      plugins: [{
-        id: 'totalLabels',
-        afterDatasetsDraw(chart, args, pluginOptions) {
-          if (!chart.options.plugins.totalLabels) return;
-          const { ctx, chartArea, data } = chart;
-          ctx.save();
-          const meta = chart.getDatasetMeta(0);
-          const datasets = chart.data.datasets;
-          chart.data.labels.forEach((label, i) => {
-            let total = 0;
-            datasets.forEach(ds => {
-              total += ds.data[i] || 0;
-            });
-            // Find the top bar's top Y position
-            let y = null;
-            for (let d = datasets.length - 1; d >= 0; d--) {
-              const bar = chart.getDatasetMeta(d).data[i];
-              if (bar) {
-                y = bar.y;
-                break;
+        plugins: [{
+          id: 'totalLabels',
+          afterDatasetsDraw(chart, args, pluginOptions) {
+            if (!chart.options.plugins.totalLabels) return;
+            const { ctx, chartArea, data } = chart;
+            ctx.save();
+            const meta = chart.getDatasetMeta(0);
+            const datasets = chart.data.datasets;
+            chart.data.labels.forEach((label, i) => {
+              let total = 0;
+              datasets.forEach(ds => {
+                total += ds.data[i] || 0;
+              });
+              let y = null;
+              for (let d = datasets.length - 1; d >= 0; d--) {
+                const bar = chart.getDatasetMeta(d).data[i];
+                if (bar && !bar.hidden) {
+                  y = bar.y;
+                  break;
+                }
               }
-            }
-            if (y !== null && total > 0) {
-              ctx.font = 'bold 11px sans-serif';
-              ctx.fillStyle = '#222';
-              ctx.textAlign = 'center';
-              ctx.fillText(total, meta.data[i].x, y - 6);
-            }
-          });
-          ctx.restore();
-        }
-      }]
+              if (y !== null && total > 0) {
+                ctx.font = 'bold 11px sans-serif';
+                ctx.fillStyle = '#222';
+                ctx.textAlign = 'center';
+                ctx.fillText(total, meta.data[i].x, y - 6);
+              }
+            });
+            ctx.restore();
+          }
+        }]
+      });
+    } catch (err) {
+      console.error('Error rendering chart:', err);
+      // alert('Chart Error: ' + err.message); // Uncomment if console is not available
+    }
+  }
+
+  function renderMonthlyHeatmap() {
+    // Toggle Visibility
+    document.getElementById('kpiChart').style.display = 'none';
+    const container = document.getElementById('monthlyHeatmap');
+    container.style.display = 'block';
+    container.innerHTML = ''; // Clear previous
+
+    const { start, end } = getMonthRange(analyticsState.currentDate);
+
+    // Get daily counts for the entire month
+    const { windowDates, data } = getKPIDataForRange(allJobs, start, end);
+    // Flatten data to get total counts per day
+    const dailyCounts = data.map(dayCounts => Object.values(dayCounts).reduce((a, b) => a + b, 0));
+
+    // Create Grid
+    const grid = document.createElement('div');
+    grid.className = 'heatmap-grid';
+
+    // Add Day Headers
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    days.forEach(d => {
+      const el = document.createElement('div');
+      el.className = 'heatmap-header';
+      el.textContent = d;
+      grid.appendChild(el);
     });
+
+    // Add Empty Cells for offset (start day of week)
+    const firstDay = start.getDay(); // 0 is Sunday
+    for (let i = 0; i < firstDay; i++) {
+      const el = document.createElement('div');
+      grid.appendChild(el);
+    }
+
+    // Add Days
+    windowDates.forEach((dateStr, idx) => {
+      const count = dailyCounts[idx];
+      const el = document.createElement('div');
+      el.className = 'heatmap-day';
+
+      // Determine Color Intensity
+      let bg = 'rgba(0,0,0,0.05)';
+      let text = '#888';
+      let border = 'transparent';
+      if (count > 0) {
+        if (count < 2) bg = 'hsl(210, 80%, 90%)'; // Light Blue
+        else if (count < 5) bg = 'hsl(210, 70%, 75%)'; // Medium Blue
+        else bg = 'hsl(210, 60%, 55%)'; // Dark Blue;
+        text = count > 4 ? '#fff' : '#222';
+      }
+
+      el.style.backgroundColor = bg;
+
+      // Day Number
+      const dayNum = document.createElement('div');
+      dayNum.className = 'heatmap-day-number';
+      dayNum.textContent = new Date(dateStr + 'T00:00:00').getDate();
+      dayNum.style.color = count > 4 ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.5)';
+      el.appendChild(dayNum);
+
+      // Count Label (if > 0)
+      if (count > 0) {
+        const countLabel = document.createElement('div');
+        countLabel.className = 'heatmap-day-count';
+        countLabel.textContent = count;
+        countLabel.style.color = text;
+        el.appendChild(countLabel);
+      }
+
+      // Tooltip
+      el.title = `${dateStr}: ${count} applications`;
+
+      grid.appendChild(el);
+    });
+
+    container.appendChild(grid);
   }
 
   // KPI navigation
   document.getElementById('kpiPrevBtn').addEventListener('click', function () {
-    kpiStartIdx = Math.min(kpiStartIdx + 1, Math.max(0, allJobs.length));
+    if (analyticsState.viewMode === 'weekly') {
+      analyticsState.currentDate.setDate(analyticsState.currentDate.getDate() - 7);
+    } else {
+      // Previous Month
+      analyticsState.currentDate.setMonth(analyticsState.currentDate.getMonth() - 1);
+    }
     renderKPIChart();
   });
+
   document.getElementById('kpiNextBtn').addEventListener('click', function () {
-    kpiStartIdx = Math.max(kpiStartIdx - 1, 0);
+    if (analyticsState.viewMode === 'weekly') {
+      const nextWeek = new Date(analyticsState.currentDate);
+      nextWeek.setDate(nextWeek.getDate() + 7);
+      if (nextWeek > new Date()) return; // Future guard
+      analyticsState.currentDate = nextWeek;
+    } else {
+      // Next Month
+      const nextMonth = new Date(analyticsState.currentDate);
+      nextMonth.setMonth(nextMonth.getMonth() + 1);
+      // Check if start of next month is in valid range (simple future check: start of next month > now) 
+      // Actually strictly speaking, if current month is "Jan 2026" and today is "Jan 15 2026", next month "Feb 2026" is future.
+      // So if nextMonth's month index > today's month index (and same year), block.
+      const now = new Date();
+      if (nextMonth.getFullYear() > now.getFullYear() ||
+        (nextMonth.getFullYear() === now.getFullYear() && nextMonth.getMonth() > now.getMonth())) {
+        return;
+      }
+      analyticsState.currentDate = nextMonth;
+    }
+    renderKPIChart();
+  });
+
+  document.getElementById('kpiTodayBtn').addEventListener('click', function () {
+    analyticsState.currentDate = new Date();
+    renderKPIChart();
+  });
+
+  // View Toggles
+  document.getElementById('viewWeeklyBtn').addEventListener('click', function () {
+    analyticsState.viewMode = 'weekly';
+    analyticsState.currentDate = new Date(); // Reset to today when switching view context usually makes sense, or keep cursor. Keeping cursor is standard but let's reset to ensure valid range if needed.
+    // Actually, user might want to see same period. But if they are far back in monthly, switching to weekly might be weird.
+    // Let's keep cursor, but ensure it's not future (which it shouldn't be).
+    this.classList.add('active');
+    document.getElementById('viewMonthlyBtn').classList.remove('active');
+    renderKPIChart();
+  });
+
+  document.getElementById('viewMonthlyBtn').addEventListener('click', function () {
+    analyticsState.viewMode = 'monthly';
+    this.classList.add('active');
+    document.getElementById('viewWeeklyBtn').classList.remove('active');
     renderKPIChart();
   });
 
   // Render KPI chart after jobs are loaded
   renderKPIChart();
+
 
   // Clear Memory button moved to downloads.html
   /*
@@ -1317,9 +1557,7 @@ document.addEventListener('DOMContentLoaded', async function () {
       document.getElementById('detailSavedAt').textContent = '—';
 
       document.getElementById('editJobBtn').style.display = '';
-      document.getElementById('saveJobBtn').style.display = 'none';
-      document.getElementById('cancelEditBtn').style.display = 'none';
-      document.getElementById('deleteJobBtn').style.display = 'none';
+      document.getElementById('detailPanelButtons').style.display = 'none';
     };
   }
 

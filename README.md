@@ -1,183 +1,120 @@
 # Job Info Saver Chrome Extension
 
-A Chrome extension that extracts job information from various job websites and saves it to CSV files or Google Sheets.
+A Chrome extension that extracts job information from various job websites and saves it locally to your browser. It allows for easy management, filtering, and exporting of your saved jobs.
 
 ## Features
 
-- **Automatic Job Data Extraction**: Extracts job information from popular job sites like LinkedIn, Indeed, Glassdoor, Monster, and ZipRecruiter
-- **Manual Data Entry**: Allows manual entry of job information
-- **CSV Export**: Saves job data to CSV files for easy import into Excel or Google Sheets
-- **Modern UI**: Beautiful, responsive popup interface
+- **Automatic Job Data Extraction**: Extracts job information from popular job sites like LinkedIn and other generic job boards.
+- **Robust Local Storage**: Uses IndexedDB to store a large number of jobs efficiently.
+- **Scheduled Daily Backups**: Automatically backs up all your saved jobs to a CSV file every day at a configurable time (default is 5 PM).
+- **Advanced Job Management**: A dedicated "Downloads" page to manage your jobs.
+- **Filter and Export**: Filter jobs by date range (all, today, since last export, custom range) and download them as a CSV file.
+- **Import and Merge**: Import jobs from a CSV file, with duplicate detection.
+- **Data Integrity**: Undo your last import and delete jobs individually or in bulk based on filters.
+- **Job History**: The popup shows a history of jobs you've saved for the currently viewed company.
+- **Custom Categories**: Organize your jobs with custom categories and sponsorship status.
+- **Context Menu Shortcuts**: Right-click on any page to quickly save a job or trigger a manual backup.
+- **Data Migration**: Automatically migrates data from older versions of the extension.
 
 ## Extracted Information
 
 The extension extracts the following information from job pages:
 - Job Title
 - Company Name
-- Location
-- Job Description
-- Salary (if available)
-- Site Link (URL of the job posting)
-- Date & Time (when the job was saved)
+- Job Link (URL of the job posting)
+- Job Description (full content of the job posting)
+- Saved At (Date and time when the job was saved)
 
 ## Installation
 
-### Method 1: Load as Unpacked Extension (Recommended for Development)
-
-1. Download or clone this repository
-2. Open Chrome and go to `chrome://extensions/`
-3. Enable "Developer mode" in the top right corner
-4. Click "Load unpacked" and select the folder containing the extension files
-5. The extension should now appear in your extensions list
-
-### Method 2: Install from Chrome Web Store (Future)
-
-Once published, you can install directly from the Chrome Web Store.
+1. Download or clone this repository.
+2. Open Chrome and navigate to `chrome://extensions/`.
+3. Enable "Developer mode" in the top right corner.
+4. Click "Load unpacked" and select the `saveToSheets` folder.
+5. The extension should now appear in your extensions list.
 
 ## Usage
 
-### Basic Usage
+### Saving a Job
 
-1. Navigate to a job posting page (LinkedIn, Indeed, Glassdoor, etc.)
-2. Click the extension icon in your Chrome toolbar
-3. Click "Extract from Page" to automatically populate the form
-4. Review and edit the extracted information if needed
-5. Click "Save Job" to save the job locally
+1. Navigate to a job posting page (e.g., on LinkedIn).
+2. Click the extension icon in your Chrome toolbar.
+3. Select a category and sponsorship status.
+4. Click "Save Job". The job information will be extracted and saved locally.
 
-### Download Filters (Date Range)
+### Managing and Exporting Jobs
 
-When exporting jobs from the Downloads page, you can filter jobs by timeframe using the dropdown:
+1. Click the "Downloads" button in the extension popup to open the management page.
+2. **Filtering**: Use the dropdown to filter which jobs are displayed. You can choose "All Jobs", "Today", "Since Last Export", or a "Custom Range".
+3. **Exporting**: After filtering, click "Download Filtered Jobs" to get a CSV file of the selected jobs.
+4. **Importing**: Use the "Import from CSV" section to select a CSV file and merge it with your saved jobs.
+5. **Deleting**: Use the "Delete Filtered Jobs" button to remove the jobs currently displayed in the preview. You can also "Clear All Saved Jobs" to start fresh.
 
-- **All Jobs**: Shows all saved jobs.
-- **Today**: Only jobs saved on the current day are shown. The extension compares the job's saved date to today's date using robust Date object logic.
-- **Since Last Export**: Only jobs saved after your last export are shown. The extension compares each job's saved date to the last export date using Date objects for accuracy. If no last export date is found, all jobs are shown.
-- **Custom Range**: Only jobs saved between the selected start and end dates are shown. The extension uses Date objects to ensure jobs are correctly filtered within the range.
+### Context Menu
 
-**Note:** The date filtering logic is robust and uses JavaScript Date objects for all comparisons, ensuring accurate results regardless of date string format.
-
-### Alternative Methods
-
-#### Context Menu
-- Right-click on any job page
-- Select "Save Job to CSV" from the context menu
-- The job information will be automatically extracted and saved
-
-#### Manual Entry
-- Click the extension icon
-- Manually fill in the job information
-- Click "Save Job" to save locally
+- Right-click on any job page and select "Save Job to DB" to quickly save the job.
+- Right-click anywhere and select "Backup Jobs Now" to trigger a manual export of all your jobs.
 
 ## Supported Job Sites
 
-The extension is optimized for the following job sites:
-- **LinkedIn Jobs**: Full support for job title, company, location, and description
-- **Indeed**: Comprehensive extraction of all job details
-- **Glassdoor**: Complete job information extraction
-- **Monster**: Job data extraction with fallback selectors
-- **ZipRecruiter**: Job information extraction
-- **Generic Sites**: Works with most job sites using common selectors
+- **LinkedIn**: Optimized for detailed extraction.
+- **Generic Sites**: Works with most other job sites by using common HTML structures to find job titles and company names.
 
 ## File Structure
 
 ```
 saveToSheets/
 ├── manifest.json          # Extension manifest
-├── popup.html            # Extension popup interface
-├── popup.js              # Popup functionality
-├── content.js            # Content script for data extraction
-├── background-simple.js  # Background script (local storage)
-├── icons/                # Extension icons
+├── background.js          # Main background service worker
+├── content.js             # Content script for data extraction
+├── popup.html             # Extension popup interface
+├── popup.js               # Popup functionality
+├── downloads.html         # Job management and downloads page
+├── downloads.js           # Functionality for the downloads page
+├── preview.html           # Job preview page
+├── preview.js             # Functionality for the preview page
+├── libs/
+│   └── db.js              # IndexedDB wrapper
+├── icons/                 # Extension icons
 │   ├── icon16.png
 │   ├── icon48.png
 │   └── icon128.png
-├── libs/                 # Local libraries (e.g., Chart.js)
-│   └── chart.umd.min.js
-├── README.md             # This file
+├── README.md              # This file
 ```
 
 ## Customization
 
 ### Adding New Job Sites
 
-To add support for a new job site, edit `content.js` and add a new extraction function:
+To add support for a new job site, you can edit `content.js`. Add a new extraction function for the specific site and then call it from the `extractJobInformation` function based on the website's domain.
 
 ```javascript
 function extractFromNewSite() {
   const data = {};
-  
-  data.jobTitle = extractText([
-    '.job-title-selector',
-    'h1[class*="title"]',
-    'h1'
-  ]);
-  
-  // Add more selectors for other fields...
-  
+  data.jobTitle = document.querySelector('.job-title-selector')?.innerText.trim() || '';
+  data.company = document.querySelector('.company-name-selector')?.innerText.trim() || '';
+  // ... add more selectors
   return data;
 }
-```
 
-Then add the site to the main extraction function:
-
-```javascript
+// In extractJobInformation()
 if (domain.includes('newsite.com')) {
   jobData = extractFromNewSite();
 }
 ```
 
-### Modifying Extracted Fields
+### Modifying CSV Headers
 
-To change which fields are extracted, modify the `jobData` object in `content.js` and update the CSV headers in `background-simple.js`.
+The headers for the CSV export are defined in `background.js` in the `createCSVContent` function and in `downloads.js`. If you add new fields to be extracted, you'll need to update the headers in both of these locations.
 
 ## Troubleshooting
 
-### Extension Not Working
-1. Make sure the extension is enabled in `chrome://extensions/`
-2. Check the browser console for error messages
-3. Ensure you're on a supported job site
-
-### Data Not Extracting
-1. Job sites may change their HTML structure
-2. Try manually entering the information
-3. Check if the site is supported in `content.js`
-
-### CSV Download Issues
-1. Ensure downloads are enabled in Chrome
-2. Check if your browser blocks popups
-3. Try using the context menu instead
+- **Extension Not Working**: Ensure the extension is enabled in `chrome://extensions/`. Check the browser console for errors by right-clicking the extension icon, selecting "Inspect popup", and checking the "Console" tab.
+- **Data Not Extracting**: Job sites frequently change their layout, which can break the extraction process. If data isn't extracting correctly, you may need to update the selectors in `content.js`.
+- **CSV Download Issues**: Ensure that you don't have any browser settings or other extensions that block downloads.
 
 ## Privacy
 
-- The extension only extracts data from job pages you visit
-- No data is sent to external servers
-- All data is stored locally in your browser
-- CSV files are saved to your local machine
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Support
-
-If you encounter any issues or have questions:
-1. Check the troubleshooting section above
-2. Review the browser console for error messages
-3. Create an issue on the GitHub repository
-
-## Future Enhancements
-
-- [ ] Google Sheets API integration
-- [ ] Support for more job sites
-- [ ] Bulk export functionality
-- [ ] Data analytics and insights
-- [ ] Job application tracking
-- [ ] Email notifications
-- [ ] Mobile app companion 
+- All data is stored locally in your browser's IndexedDB.
+- No data is ever sent to external servers.
+- CSV files are created and saved directly on your local machine. 
