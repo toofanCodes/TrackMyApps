@@ -1,20 +1,18 @@
-# Job Info Saver Chrome Extension
+# Job Tracker Chrome Extension with Kanban Dashboard
 
-A Chrome extension that extracts job information from various job websites and saves it locally to your browser. It allows for easy management, filtering, and exporting of your saved jobs.
+A Chrome extension designed to help you track and manage your job applications. It extracts job information from various job websites, saves it locally, and provides a powerful Kanban-style dashboard to visualize and manage your application pipeline from 'Applied' to 'Offer'.
 
 ## Features
 
-- **Automatic Job Data Extraction**: Extracts job information from popular job sites like LinkedIn and other generic job boards.
-- **Robust Local Storage**: Uses IndexedDB to store a large number of jobs efficiently.
-- **Scheduled Daily Backups**: Automatically backs up all your saved jobs to a CSV file every day at a configurable time (default is 5 PM).
-- **Advanced Job Management**: A dedicated "Downloads" page to manage your jobs.
-- **Filter and Export**: Filter jobs by date range (all, today, since last export, custom range) and download them as a CSV file.
-- **Import and Merge**: Import jobs from a CSV file, with duplicate detection.
-- **Data Integrity**: Undo your last import and delete jobs individually or in bulk based on filters.
-- **Job History**: The popup shows a history of jobs you've saved for the currently viewed company.
-- **Custom Categories**: Organize your jobs with custom categories and sponsorship status.
+- **Kanban Dashboard for Application Tracking**: Visualize your job application pipeline with a dynamic, drag-and-drop Kanban board. Easily move job cards through customizable stages like 'Applied', 'Interviewing', 'Offer', and 'Rejected'.
+- **Automatic Job Data Extraction**: Extracts key job information (title, company, link, description) from popular job sites like LinkedIn and other generic job boards.
+- **Robust Local Storage**: All your job data is stored securely and efficiently in your browser's IndexedDB.
+- **Advanced Job Management (Downloads Page)**: A dedicated "Downloads" page for bulk actions like filtering, exporting to CSV, importing from CSV (with duplicate detection), and mass deletion of job entries.
+- **Quick Save with Popup**: Use the extension popup to quickly save jobs, categorize them, and set sponsorship status directly from job postings. The popup also shows a history of saved jobs for the current company.
 - **Context Menu Shortcuts**: Right-click on any page to quickly save a job or trigger a manual backup.
-- **Data Migration**: Automatically migrates data from older versions of the extension.
+- **Scheduled Daily Backups**: Automatically backs up all your saved jobs to a CSV file every day at a configurable time (default is 5 PM).
+- **Data Integrity**: Undo your last import, delete jobs individually, or clear all saved jobs.
+- **Data Migration**: Automatically migrates data from older versions of the extension to ensure compatibility.
 
 ## Extracted Information
 
@@ -35,6 +33,17 @@ The extension extracts the following information from job pages:
 
 ## Usage
 
+### Using the Kanban Dashboard
+
+The Kanban Dashboard is your primary interface for managing your job application pipeline.
+
+1.  **Accessing the Dashboard**: Click the "Dashboard" button in the extension popup to open the Kanban board.
+2.  **Job Cards**: Each job you save appears as a card on the dashboard.
+3.  **Pipelines (Stages)**: Jobs are organized into vertical pipelines (e.g., Applied, Interviewing, Offer).
+4.  **Moving Jobs**: Drag and drop job cards between pipelines to update their status.
+5.  **Viewing Details**: Click on a job card to view its full details (title, company, link, description).
+6.  **Quick Actions**: Right-click on a job card for quick options like editing or deleting.
+
 ### Saving a Job
 
 1. Navigate to a job posting page (e.g., on LinkedIn).
@@ -42,13 +51,14 @@ The extension extracts the following information from job pages:
 3. Select a category and sponsorship status.
 4. Click "Save Job". The job information will be extracted and saved locally.
 
-### Managing and Exporting Jobs
+### Managing Jobs (Bulk Operations)
 
-1. Click the "Downloads" button in the extension popup to open the management page.
-2. **Filtering**: Use the dropdown to filter which jobs are displayed. You can choose "All Jobs", "Today", "Since Last Export", or a "Custom Range".
-3. **Exporting**: After filtering, click "Download Filtered Jobs" to get a CSV file of the selected jobs.
-4. **Importing**: Use the "Import from CSV" section to select a CSV file and merge it with your saved jobs.
-5. **Deleting**: Use the "Delete Filtered Jobs" button to remove the jobs currently displayed in the preview. You can also "Clear All Saved Jobs" to start fresh.
+While the Kanban Dashboard is ideal for day-to-day tracking, the "Downloads" page (accessible via the "Downloads" button in the extension popup) provides powerful tools for bulk management:
+
+1.  **Filtering**: Use the dropdown to filter which jobs are displayed based on criteria like "All Jobs", "Today", "Since Last Export", or a "Custom Range".
+2.  **Exporting**: After filtering, click "Download Filtered Jobs" to get a CSV file of the selected jobs.
+3.  **Importing**: Use the "Import from CSV" section to select a CSV file and merge it with your saved jobs.
+4.  **Deleting**: Use the "Delete Filtered Jobs" button to remove the jobs currently displayed in the preview. You can also "Clear All Saved Jobs" to start fresh.
 
 ### Context Menu
 
@@ -64,22 +74,25 @@ The extension extracts the following information from job pages:
 
 ```
 saveToSheets/
-├── manifest.json          # Extension manifest
-├── background.js          # Main background service worker
-├── content.js             # Content script for data extraction
-├── popup.html             # Extension popup interface
-├── popup.js               # Popup functionality
-├── downloads.html         # Job management and downloads page
-├── downloads.js           # Functionality for the downloads page
-├── preview.html           # Job preview page
-├── preview.js             # Functionality for the preview page
+├── manifest.json          # Extension manifest, permissions, and background service worker registration
+├── background.js          # Main background service worker for data handling, scheduling, and core logic
+├── content.js             # Content script for extracting job information from web pages
+├── popup.html             # HTML for the extension's popup interface
+├── popup.js               # JavaScript for popup functionality (saving jobs, quick actions)
+├── dashboard.html         # HTML for the Kanban-style job tracking dashboard
+├── dashboard.js           # JavaScript for the Kanban dashboard functionality
+├── downloads.html         # HTML for the job management and bulk operations page
+├── downloads.js           # JavaScript for the downloads page functionality
+├── preview.html           # HTML for job preview
+├── preview.js             # JavaScript for job preview functionality
+├── migration-utils.js     # Utility scripts for data migration
 ├── libs/
-│   └── db.js              # IndexedDB wrapper
+│   └── db.js              # IndexedDB wrapper for local data storage
 ├── icons/                 # Extension icons
 │   ├── icon16.png
 │   ├── icon48.png
 │   └── icon128.png
-├── README.md              # This file
+├── README.md              # This documentation file
 ```
 
 ## Customization
@@ -115,6 +128,7 @@ The headers for the CSV export are defined in `background.js` in the `createCSVC
 
 ## Privacy
 
-- All data is stored locally in your browser's IndexedDB.
-- No data is ever sent to external servers.
-- CSV files are created and saved directly on your local machine. 
+- All data is stored **exclusively locally** in your browser's IndexedDB.
+- **No data is ever sent to external servers**, including Google Sheets or any other third-party services.
+- **Regarding Google Sheets:** While this project was initially conceived with Google Sheets integration and the `manifest.json` might contain remnant permissions related to Google Sheets API (`sheets.googleapis.com`), this feature was abandoned. The current implementation does not use or send data to Google Sheets. We plan to remove these unused permissions from `manifest.json` in a future update to prevent confusion.
+- CSV files generated for backup or export are created and saved directly on your local machine. 

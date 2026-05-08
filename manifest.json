@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Job Info Saver - Daily Export",
+  "name": "Job Tracker with Kanban Dashboard",
   "version": "1.0",
   "description": "Extract job information from web pages and generate daily Excel reports",
   "permissions": [
@@ -14,8 +14,7 @@
     "unlimitedStorage"
   ],
   "host_permissions": [
-    "https://sheets.googleapis.com/*",
-    "https://www.googleapis.com/*",
+
     "<all_urls>"
   ],
   "action": {
