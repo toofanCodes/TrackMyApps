@@ -31,7 +31,7 @@
       padding: 0 16px;
       display: flex;
       gap: 36px;
-      align-items: flex-start;
+      align-items: stretch;
       position: relative;
       min-height: 600px;
     }
@@ -45,16 +45,18 @@
     }
 
     .left-panel {
-      flex: 7;
-      min-width: 0;
+      flex: 1;
+      width: 0;
+      /* Ensures it shrinks properly if needed below min content */
       display: flex;
       flex-direction: column;
       gap: 24px;
     }
 
     .right-panel {
-      flex: 3;
-      width: 410px;
+      flex: 0 0 360px;
+      width: 360px;
+      min-width: 360px;
       box-sizing: border-box;
       gap: 4px;
     }
@@ -421,9 +423,10 @@
 
     #tableContainer {
       margin-top: 8px;
-      min-height: 40px;
+      flex: 1;
+      /* Stretch to fill left panel height */
+      min-height: 500px;
       width: 100%;
-      height: 72vh;
       overflow-y: auto;
       overflow-x: hidden;
       /* Prevent horizontal scroll if possible */
@@ -530,7 +533,8 @@
       box-sizing: border-box;
       display: flex;
       flex-direction: column;
-      align-items: stretch;
+      align-items: center;
+      overflow: hidden;
     }
 
     .analytics-title {
@@ -711,24 +715,26 @@
     }
 
     .bulk-edit-bar {
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
+      position: sticky;
+      bottom: 0;
+      left: 0;
+      right: 0;
       background: #fff;
       padding: 12px 24px;
-      border-radius: 50px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+      border-radius: 12px 12px 0 0;
+      box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
       display: flex;
       align-items: center;
       gap: 16px;
-      z-index: 1000;
+      z-index: 100;
       border: 1px solid #e0e3ea;
-      transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s;
+      border-bottom: none;
+      margin-top: auto;
+      transition: opacity 0.3s;
     }
 
     .bulk-edit-bar.hidden {
-      transform: translate(-50%, 100px);
+      display: none;
       opacity: 0;
       pointer-events: none;
     }
@@ -903,9 +909,6 @@
       style="display:flex;align-items:center;justify-content:center;width:44px;height:44px;background:#005fa3;color:#fff;text-decoration:none;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.10);font-size:2rem;font-weight:bold;transition:background 0.2s;">
       &#x25C0;
     </a>
-    <span
-      style="font-size:1rem;font-weight:600;color:#005fa3;background:#fff;padding:6px 14px;border-radius:7px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-left:2px;">To
-      Downloads</span>
   </div>
   <!-- <button id="refreshDataBtn"
     style="position:absolute;top:10px;right:150px;z-index:1000;font-size:2rem;height:30px;width:30px;background:#80808000;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;">🔄</button> -->
@@ -922,7 +925,7 @@
             <input type="text" id="searchDescription" placeholder="Enter description here..." class="filter-input" />
           </div>
           <div class="filter-row">
-            <span class="filter-label">Categoriy Options:</span>
+            <span class="filter-label">Category Options:</span>
             <select id="filterCategory" class="filter-input">
               <option value="">Select category</option>
             </select>
@@ -960,7 +963,8 @@
       </div>
     </div>
     <div class="right-panel">
-      <div class="kpi-card" style="height: 380px; padding-bottom: 8px;" id="kpiCard">
+      <div class="kpi-card" style="height: 380px; padding-bottom: 8px; width: 100%; box-sizing: border-box;"
+        id="kpiCard">
         <div class="analytics-title">
           Analytics
           <div style="font-size: 0.8rem; font-weight: normal; margin-top: 4px; opacity: 0.9;" id="analyticsDateRange">
@@ -1005,7 +1009,7 @@
           <button id="deleteJobBtn" style="width: 60px; background:#c0392b;" class="filter-btn"
             type="button">Delete</button>
         </div>
-        <h3>select a job in table to see details here</h3>
+        <h3 id="detailPlaceholder">select a job in table to see details here</h3>
         <div class="job-detail-field"><span class="job-detail-label">Company:</span> <span id="detailCompany">—</span>
         </div>
         <div class="job-detail-field"><span class="job-detail-label">Job Title:</span> <span
@@ -1042,7 +1046,7 @@
       <select id="bulkStatus" class="bulk-select">
         <option value="">Change Status...</option>
       </select>
-      <input type="datetime-local" id="bulkAppliedTime" class="bulk-select" title="Change Applied Time" />
+      <input type="date" id="bulkAppliedTime" class="bulk-select" title="Change Applied Date" />
       <button id="bulkUpdateBtn" class="bulk-btn bulk-btn-primary">Update Selected</button>
       <button id="bulkDeleteBtn" class="bulk-btn"
         style="background:linear-gradient(90deg, #f3ccd0 0%, #ecb1b7 100%);color:#fff;">🗑️</button>
@@ -1174,6 +1178,7 @@
 
   <script src="libs/chart.umd.min.js"></script>
   <script src="libs/db.js"></script>
+  <script src="migration-utils.js"></script>
   <script src="preview.js"></script>
 </body>
 

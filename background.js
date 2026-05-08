@@ -55,31 +55,66 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log('Background received message:', request.action);
 
   if (request.action === 'saveJob') {
-    handleSaveJob(request.data)
-      .then(result => sendResponse(result))
-      .catch(error => sendResponse({ success: false, error: error.message }));
-    return true; // Async response
+    // Use async IIFE so sendResponse is held inside a live closure across
+    // the native IDB async boundary — prevents the dead-reference problem
+    // in MV3 service workers that caused "Unknown error" even when the save succeeded.
+    (async () => {
+      try {
+        const result = await handleSaveJob(request.data);
+        sendResponse(result);
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+    return true;
   }
 
   if (request.action === 'saveToSheets') {
-    // Legacy support or if we keep the name 'saveToSheets' for the button
-    handleSaveJob(request.data)
-      .then(result => sendResponse(result))
-      .catch(error => sendResponse({ success: false, error: error.message }));
+    (async () => {
+      try {
+        const result = await handleSaveJob(request.data);
+        sendResponse(result);
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
     return true;
   }
 
   if (request.action === 'manualExport') {
-    performDailyExport('Manual Export')
-      .then(result => sendResponse(result))
-      .catch(error => sendResponse({ success: false, error: error.message }));
+    (async () => {
+      try {
+        const result = await performDailyExport('Manual Export');
+        sendResponse(result);
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
     return true;
   }
 
   if (request.action === 'getJobHistory') {
-    self.db.getJobsByCompany(request.companyName)
-      .then(jobs => sendResponse({ success: true, jobs: jobs }))
-      .catch(error => sendResponse({ success: false, error: error.message }));
+    (async () => {
+      try {
+        const jobs = await self.db.getJobsByCompany(request.companyName);
+        sendResponse({ success: true, jobs: jobs });
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+    return true;
+  }
+
+  if (request.action === 'getRecentJobs') {
+    (async () => {
+      try {
+        const jobs = await self.db.getAllJobs();
+        const sorted = (jobs || []).sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt)).slice(0, 5);
+        sendResponse({ success: true, jobs: sorted });
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
     return true;
   }
 });
@@ -94,24 +129,22 @@ async function handleSaveJob(jobData) {
     jobData.addedTimestamp = new Date().toISOString();
 
     // Save to IndexedDB
-    await self.db.addJob(jobData);
-
-    // Get count for response
-    const allJobs = await self.db.getAllJobs();
+    const savedJob = await self.db.addJob(jobData);
 
     // Broadcast update to all views (preview page, popup, etc.)
-    chrome.runtime.sendMessage({ action: 'jobsUpdated' }).catch(() => {
-      // Ignore error if no receivers (e.g. popup closed, no preview open)
-    });
+    // Fire-and-forget: do NOT await this — no listeners is normal when popup/preview are closed
+    chrome.runtime.sendMessage({ action: 'jobsUpdated' }).catch(() => {});
 
+    // Respond immediately after save — avoid extra async calls that can cause
+    // the MV3 service worker to be suspended before sendResponse fires.
     return {
       success: true,
-      message: `Job saved! Total jobs: ${allJobs.length}`,
-      jobCount: allJobs.length
+      message: 'Job saved successfully!',
+      jobId: savedJob ? savedJob.jobId : null
     };
   } catch (error) {
     console.error('Error saving job:', error);
-    return { success: false, error: error.message };
+    return { success: false, error: error.message || 'Failed to save job to IndexedDB' };
   }
 }
 
@@ -230,16 +263,19 @@ function escapeCSVField(field) {
 
 // --- CONTEXT MENU ---
 function setupContextMenu() {
-  chrome.contextMenus.create({
-    id: 'saveJob',
-    title: 'Save Job to DB',
-    contexts: ['page']
-  });
+  // Always wipe existing items first to avoid "duplicate id" errors on reload/update
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({
+      id: 'saveJob',
+      title: 'Save Job to DB',
+      contexts: ['page']
+    });
 
-  chrome.contextMenus.create({
-    id: 'manualExport',
-    title: 'Backup Jobs Now',
-    contexts: ['page']
+    chrome.contextMenus.create({
+      id: 'manualExport',
+      title: 'Backup Jobs Now',
+      contexts: ['page']
+    });
   });
 }
 

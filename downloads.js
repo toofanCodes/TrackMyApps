@@ -151,11 +151,11 @@ document.addEventListener('DOMContentLoaded', async function () {
         return !jobsToDeleteSet.has(getJobIdentifier(job));
       });
 
-      // Delete jobs from DB
+      // Delete jobs from DB using the auto-increment id
       if (typeof db !== 'undefined') {
         for (const job of jobsToDelete) {
-          if (job.savedAt) {
-            await db.deleteJob(job.savedAt);
+          if (job.id) {
+            await db.deleteJob(job.id);
           }
         }
         // Reload to get remaining
@@ -485,8 +485,8 @@ document.addEventListener('DOMContentLoaded', async function () {
           const result = await db.addJobs(jobsToImport);
           console.log('Import result:', result);
 
-          // Track imported job IDs for undo
-          lastImportedJobIds = jobsToImport.map(j => j.savedAt);
+          // Track imported job IDs (jobId UUIDs) for undo
+          lastImportedJobIds = jobsToImport.map(j => j.jobId);
 
           // Show undo button
           if (undoImportBtn) {
@@ -526,8 +526,14 @@ document.addEventListener('DOMContentLoaded', async function () {
 
       try {
         if (typeof db !== 'undefined') {
-          for (const id of lastImportedJobIds) {
-            await db.deleteJob(id);
+          // Reload to get actual jobs with database IDs
+          const currentJobs = await db.getAllJobs();
+          const jobsToDelete = currentJobs.filter(j => lastImportedJobIds.includes(j.jobId));
+
+          for (const job of jobsToDelete) {
+            if (job.id) {
+              await db.deleteJob(job.id);
+            }
           }
 
           const deletedCount = lastImportedJobIds.length;

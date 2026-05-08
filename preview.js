@@ -105,18 +105,20 @@ document.addEventListener('DOMContentLoaded', async function () {
   let currentPage = 1;
   let itemsPerPage = 50;
 
-  // Job Map for O(1) lookups (rebuilt when allJobs changes)
+  // Job Map for O(1) lookups by jobId (rebuilt when allJobs changes)
   let jobMap = new Map();
   function rebuildJobMap() {
     jobMap.clear();
     allJobs.forEach(job => {
-      const id = job.savedAt || job.addedTimestamp;
-      if (id) jobMap.set(id, job);
+      // Use jobId as the primary key for lookups
+      if (job.jobId) {
+        jobMap.set(job.jobId, job);
+      }
     });
   }
 
   // Bulk Edit State
-  let selectedJobIds = new Set(); // Set of savedAt timestamps
+  let selectedJobIds = new Set(); // Set of jobId UUIDs
   const bulkEditBar = document.getElementById('bulkEditBar');
   const bulkCount = document.getElementById('bulkCount');
   const bulkCategory = document.getElementById('bulkCategory');
@@ -345,8 +347,8 @@ document.addEventListener('DOMContentLoaded', async function () {
     paginatedJobs.forEach((job, idx) => {
       const globalIdx = startIndex + idx; // Preserve global index for job detail
       const cleanLink = cleanLinkedInJobLink(job.jobLink || '');
-      const jobId = job.savedAt || job.addedTimestamp;
-      const isSelected = selectedJobIds.has(jobId);
+      const jobUniqueId = job.jobId; // Use UUID for identification
+      const isSelected = selectedJobIds.has(jobUniqueId);
 
       // Status Badge
       const status = job.status || 'Applied';
@@ -356,8 +358,8 @@ document.addEventListener('DOMContentLoaded', async function () {
       else if (status.toLowerCase().includes('reject')) statusClass = 'status-rejected';
       else if (status.toLowerCase().includes('offer')) statusClass = 'status-offer';
 
-      html += `<tr data-job-idx="${globalIdx}" data-job-id="${jobId}" class="${isSelected ? 'selected-row' : ''}">` +
-        `<td><input type="checkbox" class="job-checkbox" data-job-id="${jobId}" ${isSelected ? 'checked' : ''} /></td>` +
+      html += `<tr data-job-idx="${globalIdx}" data-job-id="${jobUniqueId}" class="${isSelected ? 'selected-row' : ''}">` +
+        `<td><input type="checkbox" class="job-checkbox" data-job-id="${jobUniqueId}" ${isSelected ? 'checked' : ''} /></td>` +
         `<td>${globalIdx + 1}</td>` +
         `<td>${job.company || ''}</td>` +
         `<td>${job.jobTitle || ''}</td>` +
@@ -469,9 +471,9 @@ document.addEventListener('DOMContentLoaded', async function () {
 
       selectAll.addEventListener('change', function () {
         if (this.checked) {
-          pageJobs.forEach(j => selectedJobIds.add(j.savedAt || j.addedTimestamp));
+          pageJobs.forEach(j => selectedJobIds.add(j.jobId));
         } else {
-          pageJobs.forEach(j => selectedJobIds.delete(j.savedAt || j.addedTimestamp));
+          pageJobs.forEach(j => selectedJobIds.delete(j.jobId));
         }
         // Update UI without full re-render
         const checkboxes = tableBody.querySelectorAll('.job-checkbox');
@@ -534,40 +536,30 @@ document.addEventListener('DOMContentLoaded', async function () {
         const idsToUpdate = Array.from(selectedJobIds);
 
         let loopIndex = 0;
-        for (const id of idsToUpdate) {
-          // O(1) lookup using jobMap instead of O(N) .find()
-          const job = jobMap.get(id);
+        for (const jobUniqueId of idsToUpdate) {
+          // O(1) lookup using jobMap (keyed by jobId)
+          const job = jobMap.get(jobUniqueId);
           if (job) {
-            const oldId = job.savedAt;
-            let dateChanged = false;
-
             if (category) job.category = category;
             if (sponsorship) job.sponsorship = sponsorship;
             if (status) job.status = status;
 
             if (appliedTime) {
-              const baseDate = new Date(appliedTime);
+              // appliedTime is 'YYYY-MM-DD' from date input
+              // Create date object in local timezone set to Noon (12:00)
+              // This avoids timezone shifting issues when viewing in other timezones
+              const [year, month, day] = appliedTime.split('-').map(Number);
+              const baseDate = new Date(year, month - 1, day, 12, 0, 0);
+
               // Add seconds/ms to ensure uniqueness
               // We'll add loopIndex seconds to keep them ordered
               baseDate.setSeconds(baseDate.getSeconds() + loopIndex);
-              const newDate = baseDate.toISOString();
-
-              if (newDate !== oldId) {
-                job.savedAt = newDate;
-                dateChanged = true;
-              }
+              job.savedAt = baseDate.toISOString();
             }
 
             if (typeof db !== 'undefined') {
-              if (dateChanged) {
-                await db.deleteJob(oldId);
-                await db.addJob(job);
-                // Update jobMap with new key
-                jobMap.delete(oldId);
-                jobMap.set(job.savedAt, job);
-              } else {
-                await db.updateJob(job);
-              }
+              // Use updateJob - db uses auto-increment id as key
+              await db.updateJob(job);
               updatedCount++;
             }
           }
@@ -585,6 +577,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
         rebuildJobMap(); // Rebuild map after bulk changes
         updateAll(false);
+        renderKPIChart(); // Refresh analytics graph
 
         // Broadcast update to other tabs
         chrome.runtime.sendMessage({ action: 'jobsUpdated' }).catch(() => { });
@@ -612,19 +605,19 @@ document.addEventListener('DOMContentLoaded', async function () {
         let deletedCount = 0;
         const idsToDelete = Array.from(selectedJobIds);
 
-        // Use jobMap for O(1) lookups
-        for (const id of idsToDelete) {
-          const job = jobMap.get(id);
+        // Use jobMap for O(1) lookups (keyed by jobId)
+        for (const jobUniqueId of idsToDelete) {
+          const job = jobMap.get(jobUniqueId);
           if (job) {
-            if (typeof db !== 'undefined' && job.savedAt) {
-              await db.deleteJob(job.savedAt);
+            if (typeof db !== 'undefined' && job.id) {
+              await db.deleteJob(job.id);
             }
             // Remove from allJobs array
             const jobIndex = allJobs.indexOf(job);
             if (jobIndex !== -1) {
               allJobs.splice(jobIndex, 1);
             }
-            jobMap.delete(id);
+            jobMap.delete(jobUniqueId);
             deletedCount++;
           }
         }
@@ -633,6 +626,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         selectedJobIds.clear();
         rebuildJobMap(); // Rebuild map after bulk deletion
         updateAll(false);
+        renderKPIChart(); // Refresh analytics graph
 
         // Broadcast update to other tabs
         chrome.runtime.sendMessage({ action: 'jobsUpdated' }).catch(() => { });
@@ -891,13 +885,16 @@ document.addEventListener('DOMContentLoaded', async function () {
   });
 
   // --- Event-driven update logic ---
-  chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'jobsUpdated') {
       if (!isEditMode) {
         console.log('Received jobsUpdated event. Refreshing data...');
-        await loadJobsData();
-        updateAll(false);
-        renderKPIChart();
+        loadJobsData().then(() => {
+          updateAll(false);
+          if (typeof renderKPIChart === 'function') {
+            renderKPIChart();
+          }
+        }).catch(err => console.error('Error refreshing data:', err));
       }
     }
   });
@@ -980,10 +977,13 @@ document.addEventListener('DOMContentLoaded', async function () {
     currentDetailJobIdx = idx;
     isEditMode = false;
     originalJobData = { ...job };
-    currentDetailJobId = job.savedAt || job.addedTimestamp || null;
+    currentDetailJobId = job.jobId || null; // Use jobId for unique identification
     renderJobDetailView(job);
     document.getElementById('editJobBtn').style.display = '';
     document.getElementById('detailPanelButtons').style.display = 'none';
+    // Hide placeholder when a job is selected
+    const placeholder = document.getElementById('detailPlaceholder');
+    if (placeholder) placeholder.style.display = 'none';
   }
 
   function renderJobDetailView(job) {
@@ -1034,7 +1034,8 @@ document.addEventListener('DOMContentLoaded', async function () {
 
   async function saveJobEdits() {
     try {
-      const jobIdx = allJobs.findIndex(j => (j.savedAt || j.addedTimestamp) === currentDetailJobId);
+      // Find job by jobId (immutable UUID)
+      const jobIdx = allJobs.findIndex(j => j.jobId === currentDetailJobId);
       if (jobIdx === -1) {
         console.error('Job not found for update:', currentDetailJobId);
         alert('Error: Job not found. Please refresh and try again.');
@@ -1042,7 +1043,6 @@ document.addEventListener('DOMContentLoaded', async function () {
       }
 
       const job = allJobs[jobIdx];
-      const oldId = job.savedAt; // Keep track of old ID
 
       // Update properties
       job.company = document.getElementById('editCompany').value;
@@ -1054,31 +1054,16 @@ document.addEventListener('DOMContentLoaded', async function () {
       job.jobDescription = document.getElementById('editJobDescription').value;
       job.qAndA = document.getElementById('editQAndA').value; // Save Q&A notes
 
-      // Handle Date Change
+      // Handle Date Change (savedAt can change, but jobId stays the same)
       const savedAtInput = document.getElementById('editSavedAt');
-      let newId = oldId;
-      let dateChanged = false;
-
       if (savedAtInput && savedAtInput.value) {
-        const newDate = new Date(savedAtInput.value).toISOString();
-        if (newDate !== oldId) {
-          job.savedAt = newDate;
-          newId = newDate;
-          dateChanged = true;
-        }
+        job.savedAt = new Date(savedAtInput.value).toISOString();
       }
 
       // Save to IndexedDB
       if (typeof db !== 'undefined') {
-        if (dateChanged) {
-          // If key changed: delete old, add new
-          await db.deleteJob(oldId);
-          await db.addJob(job);
-          currentDetailJobId = newId; // Update current ID tracking
-        } else {
-          // Standard update
-          await db.updateJob(job);
-        }
+        // The database uses auto-increment id, so just update the job
+        await db.updateJob(job);
         console.log('Job updated successfully:', job);
       } else {
         console.error('DB not available for update');
@@ -1094,6 +1079,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
       // Refresh table
       updateAll(false);
+      renderKPIChart(); // Refresh analytics graph
 
       // Broadcast update to other tabs
       chrome.runtime.sendMessage({ action: 'jobsUpdated' }).catch(() => { });
@@ -1122,11 +1108,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     currentDate: new Date(), // This represents the "cursor" (referenced date)
   };
 
-  function getLocalDateString(date) {
-    return date.getFullYear() + '-' +
-      String(date.getMonth() + 1).padStart(2, '0') + '-' +
-      String(date.getDate()).padStart(2, '0');
-  }
+  // Note: getLocalDateString is defined globally at top of file
 
 
 
@@ -1532,18 +1514,20 @@ document.addEventListener('DOMContentLoaded', async function () {
       if (!isEditMode) return;
       if (!confirm('Are you sure you want to delete this job? This cannot be undone.')) return;
 
-      const jobIdx = allJobs.findIndex(j => (j.savedAt || j.addedTimestamp) === currentDetailJobId);
+      // Find job by jobId (immutable UUID)
+      const jobIdx = allJobs.findIndex(j => j.jobId === currentDetailJobId);
       if (jobIdx === -1) return;
 
       // Fix: Get job first, then splice ONCE
       const jobToDelete = allJobs[jobIdx];
       allJobs.splice(jobIdx, 1);
 
-      if (typeof db !== 'undefined') {
-        await db.deleteJob(jobToDelete.savedAt);
+      if (typeof db !== 'undefined' && jobToDelete.id) {
+        await db.deleteJob(jobToDelete.id);
       }
       isEditMode = false;
       updateAll(false);
+      renderKPIChart(); // Refresh analytics graph
 
       // Clear detail panel
       document.getElementById('detailCompany').textContent = '—';

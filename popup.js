@@ -156,15 +156,23 @@ document.addEventListener('DOMContentLoaded', function () {
     try {
       // Get current tab to find company name
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (!tab) return;
+      if (!tab) {
+        historyList.innerHTML = '<div style="padding:8px;color:#6c757d;font-style:italic;">No active tab found.</div>';
+        return;
+      }
 
-      // Try to extract company name via content script
-      // We use a timeout to avoid hanging if content script isn't ready
-      // We also catch connection errors (e.g. on restricted pages) and return null
-      const response = await Promise.race([
-        chrome.tabs.sendMessage(tab.id, { action: 'extractJobInfo' }).catch(() => null),
-        new Promise(resolve => setTimeout(() => resolve(null), 1000))
-      ]);
+      // Try to extract company name via content script.
+      // Use 2.5s timeout — 1s was too short for slow-loading pages / script init.
+      let response = null;
+      try {
+        response = await Promise.race([
+          chrome.tabs.sendMessage(tab.id, { action: 'extractJobInfo' }),
+          new Promise(resolve => setTimeout(() => resolve(null), 2500))
+        ]);
+      } catch (e) {
+        // Content script not injected or page is restricted (chrome://, new tab, etc.)
+        response = null;
+      }
 
       if (response && response.success && response.data && response.data.company) {
         const companyName = response.data.company;
@@ -176,7 +184,7 @@ document.addEventListener('DOMContentLoaded', function () {
           sponsorshipLink.style.display = 'block';
         }
 
-        // Query background for history
+        // Query background for history by company
         let historyResp = null;
         try {
           historyResp = await chrome.runtime.sendMessage({
@@ -193,8 +201,21 @@ document.addEventListener('DOMContentLoaded', function () {
           historyList.innerHTML = `<div style="padding:8px;color:#6c757d;font-style:italic;">No previous jobs found for <b>${companyName}</b></div>`;
         }
       } else {
-        // No company found or not on a job page
-        historyList.innerHTML = '<div style="padding:8px;color:#6c757d;font-style:italic;">Navigate to a job page to see history.</div>';
+        // Not on a job page or content script timed out — show recent jobs across all companies
+        let recentResp = null;
+        try {
+          recentResp = await chrome.runtime.sendMessage({
+            action: 'getRecentJobs'
+          });
+        } catch (err) {
+          console.warn('Background connection failed for recent jobs:', err);
+        }
+
+        if (recentResp && recentResp.success && recentResp.jobs && recentResp.jobs.length > 0) {
+          renderHistory(recentResp.jobs, 'Recent Saves');
+        } else {
+          historyList.innerHTML = '<div style="padding:8px;color:#6c757d;font-style:italic;">Navigate to a job page to see history.</div>';
+        }
       }
     } catch (error) {
       console.error('Error loading history:', error);
@@ -240,4 +261,21 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Load history when popup opens
   loadJobHistory();
+
+  // --- ENTER KEY SHORTCUT ---
+  // When popup is open and Enter is pressed, trigger Save Job button
+  // (unless user is typing in an input field)
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') {
+      const activeElement = document.activeElement;
+      const isTypingInInput = activeElement &&
+        (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA' || activeElement.tagName === 'SELECT');
+
+      // Only trigger save if not focused on an input field
+      if (!isTypingInInput) {
+        e.preventDefault();
+        saveJobBtn.click();
+      }
+    }
+  });
 }); 
